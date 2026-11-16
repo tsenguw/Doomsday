@@ -201,7 +201,7 @@ var G = (function () {
     while (st.hold.length && !hasNull(s, st.hold[0])) st.hold.shift();
     if (!st.hold.length) { qFront(s, st.then); return; }
     const pid = st.hold.shift();
-    ask(s, pid, 'choice', 'null', { title: `${nm(s, st.src)} 發動了${st.label}，要打出【無效】嗎？`, opts: [{ id: 'n', label: '不使用' }, { id: 'y', label: '打出【無效】' }], st });
+    ask(s, pid, 'choice', 'null', { title: `${nm(s, st.src)} 發動了${st.label}，要打出【無效】嗎？`, sub: st.cid != null ? `${cn(st.cid)}的效果：${C(st.cid).desc}` : '', show: st.cid != null ? [st.cid] : undefined, opts: [{ id: 'n', label: '不使用' }, { id: 'y', label: '打出【無效】' }], st });
   };
   RESP.null = (s, p, a) => {
     if (a === 'y') {
@@ -210,7 +210,7 @@ var G = (function () {
       log(s, `${nm(s, p.pid)} 打出【無效】，${nm(s, p.st.src)} 的${p.st.label}失效。`);
     } else qFront(s, [p.st]);
   };
-  function withNull(s, src, label, then) { qFront(s, [{ op: 'null', src, label, then }]); }
+  function withNull(s, src, label, then, cid) { qFront(s, [{ op: 'null', src, label, then, cid }]); }
 
   // ---------- 裝備 ----------
   RESP.accept = (s, p, a) => {
@@ -244,13 +244,13 @@ var G = (function () {
     else ask(s, st.pid, 'cards', 'eqPick', { title: `${cn(st.cid)}技能：選擇目標（不選＝不發動）`, sub: card.desc, cards: sp.cards, min: 0, max: 1, sense: sp.sense, cid: st.cid, optional: true });
   };
   const eqLabel = (cid) => `裝備${cn(cid)}的技能`;
-  RESP.eqYN = (s, p, a) => { if (a === 'y') withNull(s, p.pid, eqLabel(p.cid), [{ op: 'eqDo', pid: p.pid, cid: p.cid }]); };
+  RESP.eqYN = (s, p, a) => { if (a === 'y') withNull(s, p.pid, eqLabel(p.cid), [{ op: 'eqDo', pid: p.pid, cid: p.cid }], p.cid); };
   RESP.eqPick = (s, p, a) => {
     if (!a.length) return;
     if (C(p.cid).sk === 'give') ask(s, p.pid, 'choice', 'eqGive', { title: `把 ${cn(a[0])} 放到誰面前？`, opts: order(s, p.pid).map((i) => ({ id: String(i), label: nm(s, i) })), cid: p.cid, x: a[0] });
-    else withNull(s, p.pid, eqLabel(p.cid), [{ op: 'eqDo', pid: p.pid, cid: p.cid, x: a[0] }]);
+    else withNull(s, p.pid, eqLabel(p.cid), [{ op: 'eqDo', pid: p.pid, cid: p.cid, x: a[0] }], p.cid);
   };
-  RESP.eqGive = (s, p, a) => withNull(s, p.pid, eqLabel(p.cid), [{ op: 'eqDo', pid: p.pid, cid: p.cid, x: p.x, to: +a }]);
+  RESP.eqGive = (s, p, a) => withNull(s, p.pid, eqLabel(p.cid), [{ op: 'eqDo', pid: p.pid, cid: p.cid, x: p.x, to: +a }], p.cid);
   OPS.eqDo = (s, st) => {
     const card = C(st.cid), loc = findFront(s, st.cid), me = nm(s, st.pid);
     if (!loc) return;
@@ -300,7 +300,7 @@ var G = (function () {
 
   // ---------- 功能卡 ----------
   OPS.magic = (s, st) => MAGIC[st.fn](s, st.pid);
-  function castMagic(s, pid, cid) { withNull(s, pid, `功能卡${cn(cid)}`, [{ op: 'magic', fn: C(cid).fn, pid }]); }
+  function castMagic(s, pid, cid) { withNull(s, pid, `功能卡${cn(cid)}`, [{ op: 'magic', fn: C(cid).fn, pid }], cid); }
   MAGIC.nullify = () => {};
   MAGIC.evPeek = (s, pid) => {
     if (!s.evDeck.length) { s.evDeck = shuffle(s.evDiscard); s.evDiscard = []; }
@@ -554,7 +554,7 @@ var G = (function () {
     const cs = [draw(s), draw(s), draw(s)].filter((c) => c != null), steps = [];
     cs.forEach((c) => {
       if (C(c).k === 'E') { putFront(s, pid, c); log(s, `${nm(s, pid)} 抽到 ${cn(c)}，放置面前。`); }
-      else { s.discard.push(c); log(s, `${nm(s, pid)} 抽到功能卡 ${cn(c)}${C(c).fn === 'nullify' ? '，無法發動' : '，立刻發動'}。`); if (C(c).fn !== 'nullify') steps.push({ op: 'null', src: pid, label: `功能卡${cn(c)}`, then: [{ op: 'magic', fn: C(c).fn, pid }] }); }
+      else { s.discard.push(c); log(s, `${nm(s, pid)} 抽到功能卡 ${cn(c)}${C(c).fn === 'nullify' ? '，無法發動' : '，立刻發動'}。`); if (C(c).fn !== 'nullify') steps.push({ op: 'null', src: pid, label: `功能卡${cn(c)}`, then: [{ op: 'magic', fn: C(c).fn, pid }], cid: c }); }
     });
     qFront(s, steps);
   };
