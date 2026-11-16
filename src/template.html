@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>末日三族 線上桌遊</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* 版面：一張夜色牌桌 — 上方對手、中央市集與牌庫、下方自己的角色／面前／手牌；羊皮紙色卡片，三陣營以紅藍綠標示 */
+:root{
+  color-scheme:dark;
+  --table:#131c26; --table-2:#1b2733; --line:#31404f; --ink:#e9e2d0; --dim:#9aa7b3;
+  --paper:#f0e6cf; --paper-ink:#2a2418; --ember:#e3a33b;
+  --r:#cf4b40; --b:#4b8bd0; --g:#63a257; --magic:#3a3350;
+  --display:"Noto Serif TC","Songti TC","PMingLiU",serif; --body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--table);color:var(--ink);font:15px/1.5 var(--body)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+#app{min-height:100%;display:flex;flex-direction:column}
+.btn{background:var(--table-2);border:1px solid var(--line);border-radius:8px;padding:8px 14px}
+.btn:hover:not(:disabled){border-color:var(--ember)}
+.btn.pri{background:var(--ember);color:#231a08;border-color:var(--ember);font-weight:700}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:3px 9px;font-size:13px}
+.dim{color:var(--dim)} .small{font-size:13px}
+/* home / lobby */
+.wrap{max-width:720px;margin:0 auto;padding:28px 16px;display:flex;flex-direction:column;gap:20px;width:100%}
+.hero h1{font-size:40px;font-weight:900;letter-spacing:.06em}
+.hero p{margin:8px 0 0;color:var(--dim);max-width:34em}
+.panel{background:var(--table-2);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input[type=text],select{background:var(--table);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font:inherit}
+label{font-size:13px;color:var(--dim);display:flex;flex-direction:column;gap:4px}
+.code{font-family:var(--display);font-size:34px;letter-spacing:.3em;color:var(--ember)}
+.seat{display:flex;justify-content:space-between;padding:6px 10px;border:1px solid var(--line);border-radius:8px}
+/* game */
+.bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line)}
+.bar h1{font-size:18px}
+.bar .sp{flex:1}
+.pill{border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:13px;font-variant-numeric:tabular-nums}
+.pill.on{background:var(--ember);color:#231a08;border-color:var(--ember);font-weight:700}
+.opps{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;padding:10px 16px}
+.opp{background:var(--table-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.opp.turn{border-color:var(--ember);box-shadow:0 0 0 1px var(--ember)}
+.opp .nm{font-weight:700;overflow-wrap:anywhere}
+.cards{display:flex;gap:8px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap;min-height:40px;align-items:center}
+.card{--ac:#8d8372;position:relative;flex:0 0 136px;width:136px;min-height:206px;background:#1a1520;color:#e9dfc8;border:1px solid #6b5a44;border-radius:10px;padding:5px;text-align:left;display:flex;flex-direction:column;gap:3px;box-shadow:inset 0 0 0 2px #0e0b12,inset 0 0 0 3px color-mix(in srgb,var(--ac) 55%,#3a2f25)}
+.card.cr{--ac:var(--r)}.card.cb{--ac:var(--b)}.card.cg{--ac:var(--g)}.card.M{--ac:#a078d8}.card.V{--ac:#d39a3c}
+.art{display:block;position:relative;height:94px;border-radius:6px 6px 2px 2px;overflow:hidden;background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--ac) 62%,#000) 0,#0f0b14 90%);border:1px solid color-mix(in srgb,var(--ac) 50%,#000)}
+.art::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.06) 0 1px,transparent 1px 5px),radial-gradient(circle at 50% 50%,transparent 48%,rgba(0,0,0,.55) 100%);pointer-events:none}
+.art svg{display:block;width:100%;height:100%}
+.art .i{fill:#ece1c8}.art .j{fill:#a2947b}.art .a{fill:var(--ac)}.art .k{fill:#17121c}
+.art .s,.art .sa,.art .sk,.art .sj{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.art .s{stroke:#ece1c8}.art .sa{stroke:var(--ac)}.art .sk{stroke:#17121c}.art .sj{stroke:#a2947b}
+.art .moon{fill:#ece1c8;opacity:.15}
+.card b{font-family:var(--display);font-size:15px;line-height:1.2;text-align:center;padding:1px 2px 2px;border-bottom:1px solid color-mix(in srgb,var(--ac) 60%,#000);overflow-wrap:anywhere}
+.card .meta{font-size:11px;font-weight:700;color:color-mix(in srgb,var(--ac) 70%,#fff);text-align:center}
+.card .desc{font-size:11px;line-height:1.35;color:#cfc5ae;background:#231c2a;border:1px solid #3b3144;border-radius:4px;padding:3px 5px 14px;flex:1}
+.card .badge{position:absolute;right:3px;bottom:3px;width:22px;height:22px;border-radius:50%;background:var(--ac);color:#140f18;font:700 12px/21px var(--body);text-align:center;border:1px solid #e9dfc8}
+.card .where{font-size:10.5px;color:#a79c86;padding-right:24px}
+.card .need{font-size:10.5px;font-weight:700;color:var(--ember);padding-right:24px}
+.card.sel{border-color:var(--ember);box-shadow:0 0 0 2px var(--ember);transform:translateY(-5px)}
+.card.lock{filter:saturate(.55)}
+.card.lock::before{content:"橫放";position:absolute;left:4px;top:4px;z-index:1;background:#0e0b12;color:var(--ember);font-size:9px;padding:0 3px;border-radius:3px}
+.card.mini{flex:0 0 68px;width:68px;min-height:0;padding:3px;gap:1px}
+.card.mini .art{height:46px}
+.card.mini b{font-size:11px;border:0;padding:0}
+.card.mini .badge{width:15px;height:15px;font-size:9px;line-height:14px;right:2px;top:2px;bottom:auto}
+.card.mini.lock{transform:rotate(90deg);margin:-8px 10px}
+.card.back{align-items:center;justify-content:center;min-height:78px;background:repeating-linear-gradient(45deg,#231c2a 0 6px,#1a1520 6px 12px);color:#6b5a44;font-family:var(--display);font-size:22px}
+.card.big{flex-basis:236px;width:236px}.card.big .art{height:164px}.card.big b{font-size:22px}.card.big .meta{font-size:14px}.card.big .desc{font-size:14px;padding-bottom:22px}.card.big .badge{width:32px;height:32px;line-height:31px;font-size:16px}
+.namecol{display:flex;flex-direction:column;gap:4px;align-items:center;font-size:13px}
+.gal h3{font-size:16px;color:var(--ember);margin-top:6px}
+.piles{align-items:stretch}
+.pile{display:flex;flex-direction:column;gap:2px;cursor:default}
+.pile[data-a]{cursor:pointer}
+.role{flex-direction:row!important;flex-wrap:wrap;gap:10px!important}
+.role .info{flex:1 1 130px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.fr{border-left-color:var(--r)!important}.fb{border-left-color:var(--b)!important}.fg{border-left-color:var(--g)!important}
+.tag-r{color:var(--r)}.tag-b{color:var(--b)}.tag-g{color:var(--g)}
+.center{display:grid;grid-template-columns:auto 1fr;gap:14px;padding:6px 16px;align-items:start}
+@media(max-width:760px){.center{grid-template-columns:1fr}}
+.zone{display:flex;flex-direction:column;gap:6px;min-width:0}
+.zone>h3{font-size:13px;font-family:var(--body);font-weight:500;color:var(--dim);letter-spacing:.08em}
+.hand{flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px}
+.piles{display:flex;gap:8px;flex-wrap:wrap}
+.pile{border:1px dashed var(--line);border-radius:8px;padding:6px 10px;font-size:13px;min-width:92px;background:none;text-align:left}
+.pile b{display:block;font-size:20px;font-family:var(--display);font-variant-numeric:tabular-nums}
+.log{background:var(--table-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;height:190px;overflow-y:auto;font-size:13px;display:flex;flex-direction:column;gap:3px}
+.log div:last-child{color:var(--ember)}
+.me{margin-top:auto;border-top:1px solid var(--line);background:var(--table-2);padding:10px 16px 14px;display:grid;grid-template-columns:320px 1fr;gap:14px}
+@media(max-width:760px){.me{grid-template-columns:1fr}}
+.me.turn{box-shadow:inset 0 3px 0 var(--ember)}
+.role{background:var(--table);border:1px solid var(--line);border-left:6px solid var(--dim);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:5px;font-size:13px}
+.role h2{font-size:22px}
+.role ul{margin:0;padding:0;list-style:none}
+.role li::before{content:"○ "} .role li.ok{color:var(--g)} .role li.ok::before{content:"● "}
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hint{font-size:13px;color:var(--ember)}
+.guide{margin:0 16px;border:1px solid var(--ember);border-left-width:5px;border-radius:10px;padding:8px 12px;font-size:14px;display:flex;flex-direction:column;gap:5px;background:rgba(227,163,59,.08)}
+.guide p{margin:0;max-width:70ch}
+.steps{display:flex;gap:6px;flex-wrap:wrap;font-size:12.5px}
+.steps span{border:1px solid var(--line);border-radius:99px;padding:1px 10px;color:var(--dim)}
+.steps span.now{background:var(--ember);border-color:var(--ember);color:#231a08;font-weight:700}
+.steps span.done{text-decoration:line-through}
+.ptip{margin:0;font-size:13px;color:var(--ember)}
+.wait{padding:6px 16px;color:var(--ember);font-size:14px}
+/* sheet / modal */
+.shade{position:fixed;inset:0;background:rgba(5,9,13,.6);display:flex;align-items:flex-end;justify-content:center;z-index:5}
+.sheet{background:var(--table-2);border:1px solid var(--ember);border-bottom:0;border-radius:14px 14px 0 0;padding:16px;width:min(880px,100%);max-height:86%;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.sheet h2{font-size:19px;overflow-wrap:anywhere}
+.shade.mid{align-items:center}.shade.mid .sheet{border-bottom:1px solid var(--ember);border-radius:14px}
+.rules h3{font-size:16px;margin-top:6px;color:var(--ember)} .rules p,.rules li{font-size:14px;max-width:65ch} .rules ul,.rules ol{margin:4px 0;padding-left:1.3em}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--r);color:#fff;padding:8px 16px;border-radius:8px;z-index:9;max-width:90%}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast" hidden></div>
+<script>
+/*ENGINE*/
+</script>
+<script>
+/*ART*/
+</script>
+<script>
+(function(){
+'use strict';
+const $=(q)=>document.querySelector(q);
+const esc=(s)=>String(s==null?'':s).replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const C=G.C, ROLES=G.ROLES, FAC=G.FAC;
+const BOTN=['電腦甲','電腦乙','電腦丙','電腦丁','電腦戊','電腦己','電腦庚'];
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+let db=null,user=null,uid=null,capReady=false,canWrite=null;
+let mode='home',local=false,net=null,S=null,V=0,lastS='',chain=Promise.resolve(),botT=null,toastT=null;
+let myName=store.get('ew-name')||'';
+let NEED=()=>false;
+const ui={guide:store.get('ew-guide')!=='0',sel:null,give:false,psel:[],pkey:'',detail:null,rules:false,pile:false,practice:3,codeIn:'',busy:false,loadNote:''};
+try{const h=(location.hash||'').match(/^#room-([A-Z]{4})$/);if(h)ui.codeIn=h[1];}catch(e){}
+
+function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{el.hidden=true},3600);}
+function facKey(role){return FAC[ROLES[role].f].key}
+function myPid(){if(!S)return -1;return local?0:S.players.findIndex((p)=>p.id===uid)}
+function isHost(){return local||(net&&net.doc&&net.doc.host===uid)}
+function actor(){return S.prompt?S.prompt.pid:S.turn}
+
+// ---------- 同步 ----------
+function commit(fn,keep){
+  if(!S)return false;
+  const c=JSON.parse(JSON.stringify(S));const err=fn(c);
+  if(err){if(!keep)toast(err);return false;}
+  S=c;V++;if(!keep){ui.sel=null;ui.give=false;}
+  push({phase:'play',s:JSON.stringify(S)});render();return true;
+}
+function push(patch){
+  if(local||!net)return;
+  const body=Object.assign({},net.doc,patch,{v:V});net.doc=body;lastS=body.s||'';
+  chain=chain.then(()=>net.ref.set(body)).catch((e)=>{toast(e&&e.code==='invalid_argument'?'寫入被拒絕：你可能沒有這個頁面的編輯／參與權限，請房主調整分享設定。':'寫入失敗，請稍後再試（'+((e&&e.code)||'未知')+'）');});
+}
+function setDoc(patch){V++;push(patch);render();}
+function subscribe(code){
+  const ref=db.doc('games/'+code);
+  net={code,ref,doc:null,seats:[],unsubs:[]};V=0;S=null;lastS='';mode='lobby';local=false;
+  try{location.hash='room-'+code}catch(e){}
+  ui.loadNote='';const lt=setTimeout(()=>{ui.loadNote='連線較慢，資料可能尚未更新…';render()},10000);
+  const dead=(e)=>{clearTimeout(lt);toast('連線中斷（'+((e&&e.code)||'')+'），請重新整理頁面後再加入。')};
+  net.unsubs.push(ref.onSnapshot((snap)=>{
+    if(!snap.metadata||!snap.metadata.fromCache){clearTimeout(lt);ui.loadNote='';}
+    if(!snap.exists){if(!snap.metadata||!snap.metadata.fromCache){if(net&&net.doc){toast('房間已關閉');leave(true);}}return;}
+    const d=snap.data();if(!net||typeof d.v!=='number'||d.v<V)return;
+    if(d.v===V&&net.doc&&(d.s||'')===lastS&&d.phase===net.doc.phase&&d.bots===net.doc.bots&&d.facN===net.doc.facN&&d.skill===net.doc.skill)return;
+    net.doc=Object.assign({},d);V=d.v;lastS=d.s||'';
+    if(d.phase==='play'&&d.s){try{S=JSON.parse(d.s);mode='game';}catch(e){S=null;mode='lobby';}}else{S=null;mode='lobby';}
+    render();
+  },dead));
+  net.unsubs.push(db.collection('games/'+code+'/seats').onSnapshot((q)=>{
+    if(!net)return;net.seats=q.docs.map((d)=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.t||0)-(b.t||0));render();
+  },dead));
+  render();
+}
+function seatRef(){return db.doc('games/'+net.code+'/seats/'+uid)}
+async function createRoom(){
+  if(!needName())return;ui.busy=true;render();
+  try{
+    let code='';const A='ABCDEFGHJKLMNPQRSTUVWXYZ';for(let i=0;i<4;i++)code+=A[Math.floor(Math.random()*A.length)];
+    await db.doc('games/'+code).set({v:1,host:uid,phase:'lobby',facN:2,skill:'life',bots:0,s:''});
+    subscribe(code);await seatRef().set({name:myName,t:Date.now()});
+  }catch(e){toast(e&&e.code==='invalid_argument'?'無法建立房間：你沒有這個頁面的寫入權限。':'建立房間失敗（'+((e&&e.code)||'')+'）');}
+  ui.busy=false;render();
+}
+async function joinRoom(){
+  if(!needName())return;const code=(ui.codeIn||'').toUpperCase().trim();
+  if(!/^[A-Z]{4}$/.test(code))return toast('請輸入 4 個英文字母的房號');
+  ui.busy=true;render();
+  try{
+    const snap=await db.doc('games/'+code).get();
+    if(!snap.exists){toast('找不到房間 '+code);}
+    else{const d=snap.data();subscribe(code);if(d.phase==='lobby')await seatRef().set({name:myName,t:Date.now()});}
+  }catch(e){toast(e&&e.code==='invalid_argument'?'無法加入：你沒有這個頁面的寫入權限，請房主把你的分享權限調整為可參與／可編輯。':'加入失敗（'+((e&&e.code)||'')+'）');}
+  ui.busy=false;render();
+}
+function needName(){myName=(myName||'').trim().slice(0,12);if(!myName){toast('請先輸入暱稱');return false;}store.set('ew-name',myName);return true;}
+function leave(silent){
+  if(net){net.unsubs.forEach((u)=>{try{u()}catch(e){}});if(!silent&&mode==='lobby'&&db){try{seatRef().delete().catch(()=>{})}catch(e){}}}
+  net=null;S=null;V=0;local=false;mode='home';clearTimeout(botT);botT=null;try{location.hash=''}catch(e){}render();
+}
+function startOnline(){
+  const d=net.doc,seats=net.seats.map((x)=>({id:x.id,name:String(x.name||'玩家').slice(0,12)}));
+  for(let i=0;i<(d.bots||0);i++)seats.push({id:'bot'+i,name:BOTN[i],bot:true});
+  if(seats.length<4||seats.length>8)return toast('需要 4–8 位玩家（可加入電腦玩家補滿）');
+  S=G.newGame(seats,{facN:d.facN||2,skill:d.skill||'life'});V++;push({phase:'play',s:JSON.stringify(S)});mode='game';render();
+}
+function startLocal(){
+  if(!needName())return;const seats=[{id:'me',name:myName}];for(let i=0;i<ui.practice;i++)seats.push({id:'bot'+i,name:BOTN[i],bot:true});
+  local=true;net=null;S=G.newGame(seats,{facN:2,skill:'life'});V=1;mode='game';render();
+}
+function tick(){
+  if(botT||!S||S.phase!=='play'||!isHost())return;
+  if(!S.players[actor()].bot)return;
+  botT=setTimeout(()=>{botT=null;if(!S||S.phase!=='play'||!isHost())return;const m=G.bot(S);if(!m||!S.players[m.pid].bot)return;
+    if(!commit((c)=>m.act?G.act(c,m.pid,m.act):G.respond(c,m.pid,m.ans),true))tick();},S.prompt&&S.prompt.kind==='view'?250:850);
+}
+
+// ---------- 畫面 ----------
+function frame(cls,art,name,meta,desc,badge,o,attrs){
+  o=o||{};
+  return `<button class="card ${cls}${o.mini?' mini':''}${o.big?' big':''}${o.sel?' sel':''}${o.lock?' lock':''}" ${attrs} title="${name}">`
+    +`<span class="art">${art}</span><b>${o.star?'★ ':''}${name}</b>`+(o.mini?'':`<span class="meta">${meta}</span><span class="desc">${desc}</span>`)
+    +(o.need?'<span class="need">★ 你的勝利條件</span>':'')+(o.tag?`<span class="where">${esc(o.tag)}</span>`:'')+`<span class="badge">${badge}</span></button>`;
+}
+function cardHTML(cid,o){
+  o=o||{};const c=C(cid),need=ui.guide&&NEED(cid);
+  const attrs=o.act?`data-a="${o.act}" data-c="${cid}"`:`data-a="detail" data-k="c" data-c="${cid}"`;
+  const oo=Object.assign({need:need&&!o.mini,star:need&&o.mini},o);
+  if(c.k==='E')return frame('c'+facKey(c.role),ART.eq(c.name),c.name,c.role+'・'+G.TYPE[c.type],c.desc,c.type,oo,attrs);
+  return frame('M',ART.mg(c.fn),c.name,'功能卡',c.desc,'功',oo,attrs);
+}
+function chipHTML(x){return cardHTML(x.c,{mini:true,lock:x.lock});}
+function roleCardHTML(r,o){const R=ROLES[r];return frame('c'+facKey(r),ART.rl(r),r,FAC[R.f].nation+'・'+R.sk,R.d,R.pw,o,`data-a="detail" data-k="r" data-id="${r}"`);}
+function eventCardHTML(id,o){const e=G.EV[id];return frame('V',ART.ev(id),e.name,'地標・事件',e.desc,'事',o,`data-a="detail" data-k="e" data-id="${id}"`);}
+const backHTML=()=>'<span class="card back mini" title="角色未揭露">？</span>';
+function roleLine(p,show){
+  if(!show)return '<span class="dim">角色未揭露</span>';
+  const R=ROLES[p.role.n],k=FAC[R.f].key;return `<span class="tag-${k}"><b>${p.role.n}</b>・${FAC[R.f].nation}</span>${p.role.rev?' <span class="dim small">已揭露</span>':''}`;
+}
+function homeHTML(){
+  const on=capReady&&db;
+  return `<div class="wrap"><div class="hero"><h1>末日三族</h1><p>創世神宣告毀滅世界，只留下最後資源爭奪戰的勝利者。帝國、共和國、公國三大族群，4–8 人連線對戰。</p></div>
+  <div class="panel"><label for="nm">你的暱稱<input type="text" id="nm" maxlength="12" value="${esc(myName)}" placeholder="最多 12 個字"></label></div>
+  <div class="panel"><h2>連線對戰</h2>
+    ${!capReady?'<p class="dim small">連線功能準備中…</p>':on?(canWrite===false?'<p class="hint">你目前對這個頁面只有檢視權限，無法建立或加入房間。請頁面擁有者把你的分享權限調整為可參與／可編輯。</p>':''):'<p class="hint">這個畫面無法使用連線功能（需登入並從已發佈的頁面開啟）。仍可在下方單機練習。</p>'}
+    <div class="row"><button class="btn pri" data-a="create" ${on&&!ui.busy?'':'disabled'}>建立房間</button>
+    <span class="dim">或</span><input type="text" id="code" maxlength="4" size="6" placeholder="房號" value="${esc(ui.codeIn)}" style="text-transform:uppercase;letter-spacing:.2em">
+    <button class="btn" data-a="join" ${on&&!ui.busy?'':'disabled'}>加入房間</button></div>
+    <p class="dim small">所有玩家都要開啟同一個頁面連結並登入；房主建立房間後把 4 碼房號告訴朋友。</p></div>
+  <div class="panel"><h2>單機練習</h2><div class="row"><label for="pr">電腦對手<select id="pr">${[3,4,5,6,7].map((n)=>`<option value="${n}" ${n===ui.practice?'selected':''}>${n} 位</option>`).join('')}</select></label>
+    <button class="btn" data-a="local">開始練習</button></div></div>
+  <div class="row"><button class="btn" data-a="rules">遊戲規則</button><button class="btn" data-a="gallery">卡牌圖鑑</button></div></div>`;
+}
+function lobbyHTML(){
+  const d=net.doc,host=isHost();
+  if(!d)return `<div class="wrap"><p class="dim">連線中…${esc(ui.loadNote)}</p><div><button class="btn" data-a="leave">返回</button></div></div>`;
+  const total=net.seats.length+(d.bots||0),seated=net.seats.some((x)=>x.id===uid);
+  return `<div class="wrap"><div class="hero"><p class="dim small">房號</p><div class="code">${net.code}</div><p>把房號告訴朋友，請他們開啟同一個頁面後輸入加入。${esc(ui.loadNote)}</p></div>
+  <div class="panel"><h2>玩家（${total}／8）</h2>
+    ${net.seats.map((x)=>`<div class="seat"><span>${esc(x.name)}${x.id===uid?' <span class="dim">（你）</span>':''}</span><span class="dim small">${x.id===d.host?'房主':''}</span></div>`).join('')}
+    ${Array.from({length:d.bots||0},(_,i)=>`<div class="seat"><span>${BOTN[i]}</span><span class="dim small">電腦</span></div>`).join('')}
+    ${!seated?'<p class="hint">你尚未入座。<button class="btn sm" data-a="sit">入座</button></p>':''}
+  </div>
+  <div class="panel"><h2>設定${host?'':'（由房主決定）'}</h2><div class="row">
+    <label for="ob">電腦玩家<select id="ob" ${host?'':'disabled'}>${[0,1,2,3,4,5,6,7].map((n)=>`<option value="${n}" ${n===(d.bots||0)?'selected':''}>${n} 位</option>`).join('')}</select></label>
+    <label for="of">陣營勝利所需專屬裝備<select id="of" ${host?'':'disabled'}><option value="2" ${d.facN===2?'selected':''}>每人 2 張</option><option value="3" ${d.facN===3?'selected':''}>每人 3 張</option></select></label>
+    <label for="os">角色技能次數<select id="os" ${host?'':'disabled'}><option value="life" ${d.skill==='life'?'selected':''}>每次轉生 1 次</option><option value="turn" ${d.skill==='turn'?'selected':''}>每回合 1 次</option></select></label>
+  </div></div>
+  <div class="row">${host?`<button class="btn pri" data-a="start" ${total>=4&&total<=8?'':'disabled'}>開始遊戲</button>`:'<span class="dim">等待房主開始…</span>'}
+    <button class="btn" data-a="rules">遊戲規則</button><button class="btn" data-a="leave">離開房間</button>
+    ${total<4?'<span class="hint">至少需要 4 位玩家，可用電腦玩家補滿。</span>':''}${total>8?'<span class="hint">最多 8 位玩家。</span>':''}</div></div>`;
+}
+function gameHTML(){
+  const me=myPid(),over=S.phase==='over',mine=me>=0?S.players[me]:null;
+  const myTurn=me>=0&&S.turn===me&&!over,idle=!S.prompt&&!S.q.length;
+  NEED=mine?((cid)=>{const c=C(cid),r=mine.role.n;return c.k==='E'&&(r==='史萊姆'||c.role===r||ROLES[r].win.includes(c.name));}):(()=>false);
+  const a=actor(),order=[];for(let i=1;i<=S.players.length;i++){const k=((me<0?-1:me)+i)%S.players.length;if(k!==me)order.push(k);}
+  const opps=order.map((i)=>{const p=S.players[i];
+    return `<div class="opp${S.turn===i&&!over?' turn':''}"><div class="row" style="justify-content:space-between;gap:6px"><span class="nm">${esc(p.name)}${p.bot?' <span class="dim small">電腦</span>':''}</span><span class="pill" title="手牌張數">手牌 ${p.hand.length}</span></div>
+    <div class="chips">${p.role.rev||over?roleCardHTML(p.role.n,{mini:true}):backHTML()}<span class="small">${roleLine(p,p.role.rev||over)}${S.turn===i&&!over?'<br><span class="hint">回合中</span>':''}</span></div>
+    <div class="chips">${p.front.map(chipHTML).join('')||'<span class="dim small">面前沒有裝備</span>'}</div>
+    ${!local&&isHost()&&!over&&p.id.indexOf('bot')!==0?`<div><button class="btn sm" data-a="tobot" data-p="${i}">${p.bot?'交還給玩家':'交給電腦代打'}</button></div>`:''}</div>`;}).join('');
+  const canMarket=myTurn&&idle&&!S.acted&&ui.sel!=null;
+  const top=S.discard.length?cardHTML(S.discard[S.discard.length-1],{mini:true}):'';
+  const center=`<div class="zone"><h3>市集${canMarket?'<span class="hint">　點一張與選取的手牌交換</span>':''}</h3><div class="cards">${S.market.map((c)=>cardHTML(c,canMarket?{act:'market'}:{})).join('')}</div>
+    <div class="piles"><div class="pile">資源牌庫<b>${S.deck.length}</b></div><div class="pile" data-a="pile" title="點此查看整個棄牌堆">棄牌堆<b>${S.discard.length}</b>${top}</div>
+    <div class="pile">事件牌庫<b>${S.evDeck.length}</b>${S.lastEvent?'<span class="dim small">上一張</span>'+eventCardHTML(S.lastEvent,{mini:true}):''}</div><div class="pile">角色牌庫<b>${S.roleDeck.length}</b></div></div></div>
+    <div class="zone"><h3>紀錄</h3><div class="log" id="log">${S.log.map((l)=>`<div>${esc(l)}</div>`).join('')}</div></div>`;
+  let wait='';
+  if(!over){
+    if(S.prompt&&S.prompt.pid!==me)wait=`等待 ${esc(S.players[S.prompt.pid].name)} 回應…`;
+    else if(!S.prompt&&!myTurn)wait=`${esc(S.players[S.turn].name)} 的回合…`;
+  }
+  let meHTML='';
+  if(mine){
+    const R=ROLES[mine.role.n],k=FAC[R.f].key,solo=G.soloCheck(mine),fp=G.facProgress(S,mine);
+    const sel=ui.sel!=null&&mine.hand.includes(ui.sel)?C(ui.sel):null;let acts='';
+    if(myTurn&&idle){
+      if(!S.acted){
+        if(sel&&sel.k==='E')acts+=ui.give?S.players.map((p,i)=>i===me?'':`<button class="btn" data-a="playto" data-p="${i}">放到 ${esc(p.name)} 面前</button>`).join('')+'<button class="btn sm" data-a="giveoff">取消</button>'
+          :`<button class="btn pri" data-a="playself">打出到自己面前</button><button class="btn" data-a="giveon">放到別人面前…</button>`;
+        else if(sel)acts+=`<button class="btn pri" data-a="cast" ${sel.fn==='nullify'?'disabled':''}>發動【${sel.name}】</button>`;
+        else acts+='<span class="hint">輪到你：選一張手牌打出或與市集交換，或</span>';
+        if(!ui.give){if(G.canRedraw(S,me))acts+='<button class="btn" data-a="redraw">換掉全部手牌</button>';acts+='<button class="btn" data-a="reinc">轉生（觸發事件）</button>';}
+      }else acts+='<button class="btn pri" data-a="end">結束回合</button>';
+      if(G.canSkill(S,me)&&!ui.give)acts+=`<button class="btn" data-a="skill">發動技能「${R.sk}」</button>`;
+    }
+    meHTML=`<section class="me${myTurn?' turn':''}"><div class="role" style="border-left-color:var(--${k})">${roleCardHTML(mine.role.n,{})}<div class="info"><div class="small tag-${k}">${FAC[R.f].nation}（${FAC[R.f].tag}）・戰鬥指數 ${R.pw}</div>
+      <div class="small dim">${mine.role.rev?'角色已揭露':'角色未揭露'}${R.passive?'':mine.role.used?'・技能已使用':'・技能可用'}</div>
+      <div class="dim" style="margin-top:4px">個人勝利（面前同時擁有）</div><ul>${solo.map((x)=>`<li class="${x.ok?'ok':''}">${x.t}</li>`).join('')}</ul>
+      <div class="dim">陣營勝利：全隊每人 ${fp.text}（你 ${Math.min(fp.have,fp.need)}／${fp.need}）</div></div></div>
+      <div class="zone"><h3>你的面前（${mine.front.length}／5）</h3><div class="chips">${mine.front.map(chipHTML).join('')||'<span class="dim small">尚未放置裝備</span>'}</div>
+      <h3>手牌（${mine.hand.length}）</h3><div class="cards hand">${mine.hand.map((c)=>cardHTML(c,{act:'sel',sel:ui.sel===c})).join('')}</div>
+      <div class="acts">${acts}</div></div></section>`;
+  }else meHTML='<section class="me"><div class="dim">你正在觀戰。</div></section>';
+  return `<header class="bar"><h1>末日三族</h1>${net?`<span class="pill">房號 ${net.code}</span>`:'<span class="pill">單機練習</span>'}<span class="pill">第 ${S.round} 手</span>
+    <span class="pill${myTurn?' on':''}">${over?'遊戲結束':myTurn?'你的回合':'輪到 '+esc(S.players[S.turn].name)}</span><span class="sp"></span>
+    <button class="btn sm" data-a="guide" aria-pressed="${ui.guide}">指引：${ui.guide?'開':'關'}</button><button class="btn sm" data-a="rules">規則</button><button class="btn sm" data-a="leave">離開</button></header>
+    <section class="opps">${opps}</section>${wait?`<div class="wait">${wait}${a!==me&&ui.loadNote?esc(ui.loadNote):''}</div>`:''}${guideHTML(me,mine,myTurn,idle)}<section class="center">${center}</section>${meHTML}`;
+}
+const PTIP={
+  null:'打出【無效】會讓對方這次的效果直接失效。你的【無效】進棄牌堆，要等你自己的回合結束才補牌。',
+  accept:'收下：這張裝備留在你面前（上限 5 張）。退回：它會改放到對方面前。標 ★ 的是你需要的裝備。',
+  eqYN:'裝備技能可用可不用。發動後，手上有【無效】的玩家可以擋下。',
+  eqPick:'裝備技能可用可不用，不選任何牌就是不發動。',
+  eqGive:'可以放到自己面前，也可以送給隊友或塞給對手。',
+  overflow:'面前最多 5 張。優先留下標 ★ 的勝利條件裝備。',
+  evDiscard:'橫放的裝備受保護，所以不在可選範圍內。',
+  gatherA:'標 ★ 的是你勝利條件需要的裝備。',farmer:'標 ★ 的是你勝利條件需要的裝備。',duelTake:'標 ★ 的是你勝利條件需要的裝備。',battle:'標 ★ 的是你勝利條件需要的裝備。',
+  gatherB:'沒選的那張會洗回資源牌庫。',
+  swapT:'接下來要猜對方手牌裡有哪種裝備，猜中才會交換。',swapR:'猜中對方手牌裡有的裝備才會交換，猜錯這張卡就浪費了。',swapN:'指定名稱較難猜中；選「任一張」只要對方有該角色的裝備就成立。',
+  swapGive:'這張會交給對方，挑一張你不需要的。',
+  wind:'「下家」是回合順序的下一位，「上家」是上一位。傳的是整副手牌，抽的是隨機一張。',
+  port:'棄幾張就抽幾張。標 ★ 的建議留著。',
+  imp:'所有人的角色卡一起移動，你也會換到別人的角色，勝利條件跟著改變。',
+  slime:'選定後你就變成那個角色，勝利條件與技能都會改變，而且角色重新蓋起來。',
+  witchTake:'你拿走幾張，就要還給對方幾張自己的手牌。',witchGive:'挑你不需要的牌給對方。',
+  beast:'不放置的話，你的角色會被揭露，直到轉生為止。',
+  oasisLock:'橫放的裝備不會被別人移動或丟棄，而且照樣計入勝利條件。',
+  ruins:'放到面前的裝備才算勝利進度。',islands:'這張會移到下家面前，挑一張你不需要的。',
+  temple:'選中的功能卡會由你立刻發動一次。',fairy:'排在最左邊的事件會最先被觸發。',evPeek:'下一次有人轉生或發動「事件觸發」時，就會觸發牌庫頂的事件。',
+  duelT:'比的是雙方角色的戰鬥指數，高的贏；你的指數寫在左下角色卡上。',sword:'比的是雙方角色的戰鬥指數；輸了你不會失去裝備。',
+  viewHand:'只有你看得到結果。',viewRole:'只有你看得到結果。',archer:'你們兩人的整副手牌會互換。',
+};
+function guideHTML(me,mine,myTurn,idle){
+  if(!ui.guide||!mine||S.phase!=='play')return '';
+  const R=ROLES[mine.role.n],names=(a)=>a.map((c)=>'【'+C(c).name+'】').join('');
+  const needHand=mine.hand.filter((c)=>NEED(c)),needMkt=S.market.filter((c)=>NEED(c));
+  const hasNull=mine.hand.some((c)=>C(c).fn==='nullify'),skillOK=G.canSkill(S,me);
+  const lines=[];let step=0;
+  if(S.prompt){
+    lines.push(S.prompt.pid===me?'請先回應跳出的選擇，效果結算完才會繼續。':'正在等 '+esc(S.players[S.prompt.pid].name)+' 做選擇，結算完才會繼續。');
+    step=myTurn?(S.acted?2:1):0;
+  }else if(!myTurn){
+    lines.push('現在是 '+esc(S.players[S.turn].name)+' 的回合。趁這時對照左下的勝利條件：標 ★ 的裝備是你需要的，留意它們在誰面前、有沒有出現在市集。');
+    if(hasNull)lines.push('你手上有【無效】：別人發動功能卡或裝備技能時，系統會問你要不要打出。');
+  }else if(!S.acted){
+    step=1;const sel=ui.sel!=null&&mine.hand.includes(ui.sel)?C(ui.sel):null;
+    if(sel&&sel.k==='E'){
+      lines.push('【'+sel.name+'】：放在自己面前才算你的勝利進度。打出後若條件符合，會問你要不要發動它的技能（'+sel.desc+'）。');
+      lines.push(mine.front.length>=5?'你面前已有 5 張，再放一張就得棄掉一張。':'也可以放到別人面前（對方可收下或退回），或點市集的牌把它換掉。');
+    }else if(sel){
+      lines.push(sel.fn==='nullify'?'【無效】不能主動打出，只能在別人發動效果時使用。請改選別張，或拿它去和市集交換。':'【'+sel.name+'】：'+sel.desc+'。發動後這張牌進棄牌堆，本回合的動作就用掉了。也可以點市集的牌把它換掉。');
+    }else{
+      lines.push('輪到你了。這回合從四個動作選一個：打出一張手牌、與市集交換一張、換掉全部手牌（手牌全裝備或全功能卡時）、轉生。');
+      if(needHand.length)lines.push('建議：手上的 ★'+names(needHand)+'是你的勝利條件，點它再按「打出到自己面前」。');
+      else if(needMkt.length)lines.push('建議：市集有你需要的 ★'+names(needMkt)+'。先點一張不需要的手牌，再點市集那張交換。');
+      else lines.push('手上和市集都沒有你需要的裝備。可以用功能卡找牌、和市集換牌；若這個角色的條件太難湊，轉生換一個角色（會觸發一張事件）。');
+    }
+    if(skillOK&&!sel)lines.push('技能「'+R.sk+'」可在動作前或後發動，不算動作，但會揭露你的角色。');
+  }else{
+    step=skillOK?2:3;
+    lines.push('動作已完成。'+(skillOK?'還可以發動技能「'+R.sk+'」（會揭露角色）；不用的話，':'')+'按「結束回合」把手牌補到 5 張，換下一位。');
+  }
+  const st=myTurn?'<div class="steps">'+['① 選一個動作','② 角色技能（可選）','③ 結束回合'].map((x,i)=>'<span class="'+(i+1===step?'now':i+1<step?'done':'')+'">'+x+'</span>').join('')+'</div>':'';
+  return '<aside class="guide" aria-label="遊玩指引">'+st+lines.map((l)=>'<p>'+l+'</p>').join('')+'</aside>';
+}
+function promptHTML(){
+  const p=S.prompt,me=myPid();if(!p||p.pid!==me||S.phase!=='play')return '';
+  const key=p.k+'|'+p.title+'|'+V;if(ui.pkey!==key){ui.pkey=key;ui.psel=[];}
+  let body='';
+  if(p.sub)body+=`<p class="dim" style="margin:0">${esc(p.sub)}</p>`;
+  if(ui.guide&&PTIP[p.k])body+=`<p class="ptip">指引：${PTIP[p.k]}</p>`;
+  if(p.show&&p.show.length)body+=`<div class="cards">${p.show.map((c)=>cardHTML(c)).join('')}</div>`;
+  if(p.show&&!p.show.length)body+='<p class="dim">（沒有手牌）</p>';
+  if(p.roles)body+='<div class="cards">'+p.roles.map((r)=>`<div class="namecol"><span>${esc(S.players[r.p].name)}</span>${roleCardHTML(r.n,{})}</div>`).join('')+'</div>';
+  if(p.kind==='choice')body+=`<div class="row">${p.opts.map((o)=>`<button class="btn" data-a="ans" data-v="${esc(o.id)}">${esc(o.label)}</button>`).join('')}</div>`;
+  else if(p.kind==='cards'){
+    const n=ui.psel.length,ok=n>=p.min&&n<=p.max;
+    body+=`<div class="cards">${p.cards.map((x)=>cardHTML(x.c,{act:'psel',sel:ui.psel.includes(x.c),tag:x.tag})).join('')}</div>
+    <div class="row"><button class="btn pri" data-a="pok" ${ok?'':'disabled'}>${n===0&&p.min===0?'不選，略過':'確認（已選 '+n+' 張）'}</button><span class="dim small">${p.min===p.max?'需選 '+p.min+' 張':'可選 '+p.min+'–'+p.max+' 張'}</span></div>`;
+  }else body+='<div class="row"><button class="btn pri" data-a="ans" data-v="ok">知道了</button></div>';
+  return `<div class="shade"><div class="sheet" role="dialog" aria-label="需要你回應"><h2>${esc(p.title)}</h2>${body}</div></div>`;
+}
+function overHTML(){
+  if(!S||S.phase!=='over'||ui.hideOver)return '';
+  const w=S.winners;
+  return `<div class="shade mid"><div class="sheet"><h2>${w.type==='solo'?'個人勝利':'陣營勝利：'+FAC[w.fac].nation}</h2>
+    <p style="margin:0">${w.ids.map((i)=>esc(S.players[i].name)+'（'+S.players[i].role.n+'）').join('、')} 獲勝！</p>
+    ${S.players.map((p,i)=>`<div class="seat"><span>${esc(p.name)}${w.ids.includes(i)?' ★':''}</span><span class="tag-${facKey(p.role.n)}">${p.role.n}・${FAC[ROLES[p.role.n].f].nation}</span></div>`).join('')}
+    <div class="row">${local?'<button class="btn pri" data-a="again">再來一局</button>':isHost()?'<button class="btn pri" data-a="tolobby">回到大廳</button>':'<span class="dim">等待房主回到大廳…</span>'}
+    <button class="btn" data-a="hideover">查看牌桌</button><button class="btn" data-a="leave">離開</button></div></div></div>`;
+}
+function detailHTML(){
+  if(ui.detail)return detailOne();
+  if(ui.pile&&S)return `<div class="shade mid" data-a="close"><div class="sheet"><h2>棄牌堆（${S.discard.length}）</h2><div class="cards">${S.discard.slice().reverse().map((c)=>cardHTML(c)).join('')||'<span class="dim">空的</span>'}</div><div><button class="btn" data-a="close">關閉</button></div></div></div>`;
+  if(ui.gallery){
+    const seen={},mg=G.CARDS.filter((c)=>c.k==='M'&&!seen[c.fn]&&(seen[c.fn]=1));
+    return `<div class="shade mid"><div class="sheet gal"><div class="row" style="justify-content:space-between"><h2>卡牌圖鑑</h2><button class="btn" data-a="close">關閉</button></div>
+    <h3>角色卡（15）</h3><div class="cards">${Object.keys(ROLES).map((r)=>roleCardHTML(r,{})).join('')}</div>
+    <h3>裝備卡（56）</h3><div class="cards">${G.CARDS.filter((c)=>c.k==='E').map((c)=>cardHTML(c.id)).join('')}</div>
+    <h3>功能卡（10 種，共 52 張）</h3><div class="cards">${mg.map((c)=>cardHTML(c.id)).join('')}</div>
+    <h3>地標卡（12）</h3><div class="cards">${G.EVENTS.map((e)=>eventCardHTML(e[0],{})).join('')}</div></div></div>`;
+  }
+  return '';
+}
+function detailOne(){
+  const d=ui.detail;let big,extra='';
+  if(d.k==='r'){big=roleCardHTML(d.id,{big:true});const R=ROLES[d.id];extra=`<div class="small" style="max-width:236px"><div class="dim">個人勝利條件</div>${d.id==='史萊姆'?'攻擊、防守類各 1 張，其他類 2 張':'任 1 個'+d.id+'裝備、'+R.win.join('、')}</div>`;}
+  else if(d.k==='e')big=eventCardHTML(d.id,{big:true});else big=cardHTML(+d.id,{big:true});
+  return `<div class="shade mid" data-a="close"><div class="sheet" style="width:auto;align-items:center">${big}${extra}<button class="btn" data-a="close">關閉</button></div></div>`;
+}
+function rulesHTML(){
+  if(!ui.rules)return '';
+  const rl=Object.keys(ROLES).map((r)=>`<li><b class="tag-${facKey(r)}">${r}</b>（${FAC[ROLES[r].f].nation}，戰鬥指數 ${ROLES[r].pw}）「${ROLES[r].sk}」：${ROLES[r].d}</li>`).join('');
+  return `<div class="shade mid"><div class="sheet rules"><div class="row" style="justify-content:space-between"><h2>遊戲規則</h2><span class="row"><button class="btn" data-a="gallery">卡牌圖鑑</button><button class="btn" data-a="close">關閉</button></span></div>
+  <h3>準備</h3><p>4–8 人。4–6 人時每個陣營取 2 張角色、7–8 人取 3 張，洗勻後每人發一張（不公開），其餘角色進角色牌庫。每人 5 張資源卡（56 張裝備＋52 張功能卡），市集翻開 3 張。</p>
+  <h3>你的回合：四選一</h3><ol><li><b>發動一張資源卡</b>：裝備可放到自己或任何玩家面前（對方可收下，或退回到你面前）；打出後你可以選擇發動它的技能。功能卡發動後進棄牌堆。</li><li><b>與市集交換</b>一張手牌。</li><li>手牌<b>全是裝備或全是功能卡</b>時，可換掉全部手牌。</li><li><b>轉生</b>：換一張新角色，並強制觸發一張事件。</li></ol>
+  <p>回合中另可發動角色技能（不算動作）。發動技能會<b>揭露角色</b>，直到轉生。結束回合時手牌補到 5 張；回合外打出【無效】要等到自己回合結束才補牌。</p>
+  <h3>裝備</h3><p>每人面前最多 5 張，超過須自選棄掉。<b>橫放</b>（覆蓋）的裝備受到保護：不會被別人的技能、功能卡、事件移動或丟棄，仍計入勝利條件；只有「翻正橫放裝備」的技能能解除。</p>
+  <h3>勝利</h3><ul><li><b>個人勝利</b>：面前同時擁有角色卡指定的 3 項裝備（畫面左下會顯示進度）。</li><li><b>陣營勝利</b>：同陣營（至少 2 人）每個人面前都有自己角色的專屬裝備 2 張（房主可改 3 張）。史萊姆沒有專屬裝備，以攻／守／其他各 1 張計。</li></ul>
+  <h3>決鬥</h3><p>比較雙方角色的戰鬥指數，高者勝；贏家從輸家面前拿 N 張未橫放的裝備（N＝指數差），平手無事。</p>
+  <h3>事件</h3><p>事件依序對每位玩家結算，由觸發者開始；幼童不受影響。</p><ul>${G.EVENTS.map((e)=>`<li><b>${e[1]}</b>：${e[2]}</li>`).join('')}</ul>
+  <h3>功能卡</h3><ul>${G.MAG.map((m)=>`<li><b>${m[1]}</b> ×${m[2]}：${m[3]}</li>`).join('')}</ul>
+  <h3>角色</h3><ul>${rl}</ul>
+  <h3>連線版的補充裁定</h3><ul><li>「上家／下家」取代左右：下家是回合順序的下一位。</li><li>角色技能預設每次轉生只能用一次（房主可改為每回合一次）。</li><li>【無效】只詢問手上有這張牌的玩家，不能再被無效。</li><li>資源、角色資訊都存在共用的房間資料裡，畫面只顯示你該看到的部分；這是朋友間的遊戲，沒有防作弊機制。</li></ul></div></div>`;
+}
+function render(){
+  const app=$('#app');let h;
+  if(mode==='home')h=homeHTML();else if(mode==='lobby'||!S)h=net?lobbyHTML():homeHTML();else h=gameHTML()+promptHTML()+overHTML();
+  const ae=document.activeElement,keep=ae&&ae.id&&(ae.tagName==='INPUT')?{id:ae.id,v:ae.value,s:ae.selectionStart}:null;
+  const hand=document.querySelector('.hand'),hs=hand?hand.scrollLeft:0;
+  app.innerHTML=h+detailHTML()+rulesHTML();
+  if(keep){const el=document.getElementById(keep.id);if(el){el.value=keep.v;el.focus();try{el.setSelectionRange(keep.s,keep.s)}catch(e){}}}
+  const lg=$('#log');if(lg)lg.scrollTop=lg.scrollHeight;const h2=document.querySelector('.hand');if(h2)h2.scrollLeft=hs;
+  tick();
+}
+
+// ---------- 事件處理 ----------
+document.addEventListener('input',(e)=>{const t=e.target;if(t.id==='nm')myName=t.value;if(t.id==='code')ui.codeIn=t.value.toUpperCase();});
+document.addEventListener('change',(e)=>{const t=e.target;
+  if(t.id==='pr')ui.practice=+t.value;
+  if(net&&isHost()&&net.doc){if(t.id==='ob')setDoc({bots:+t.value});if(t.id==='of')setDoc({facN:+t.value});if(t.id==='os')setDoc({skill:t.value});}
+});
+document.addEventListener('click',(e)=>{
+  const el=e.target.closest('[data-a]');if(!el)return;
+  const a=el.dataset.a,me=myPid(),cid=el.dataset.c!=null?+el.dataset.c:null;
+  if(a==='close'){if(el.classList.contains('shade')&&e.target!==el)return;if(ui.detail&&(ui.gallery||ui.pile)){ui.detail=null;return render();}ui.detail=null;ui.rules=false;ui.pile=false;ui.gallery=false;return render();}
+  switch(a){
+    case 'rules':ui.rules=true;break;
+    case 'guide':ui.guide=!ui.guide;store.set('ew-guide',ui.guide?'1':'0');break;
+    case 'detail':ui.detail={k:el.dataset.k||'c',id:el.dataset.k&&el.dataset.k!=='c'?el.dataset.id:cid};break;
+    case 'gallery':ui.gallery=true;ui.rules=false;break;
+    case 'pile':ui.pile=true;break;
+    case 'create':createRoom();return;
+    case 'join':joinRoom();return;
+    case 'local':startLocal();return;
+    case 'leave':leave();return;
+    case 'sit':if(needName())seatRef().set({name:myName,t:Date.now()}).catch(()=>toast('入座失敗：沒有寫入權限'));return;
+    case 'start':startOnline();return;
+    case 'tolobby':S=null;mode='lobby';ui.hideOver=false;setDoc({phase:'lobby',s:''});return;
+    case 'again':ui.hideOver=false;startLocal();return;
+    case 'hideover':ui.hideOver=true;break;
+    case 'tobot':commit((c)=>{const p=c.players[+el.dataset.p];p.bot=!p.bot;return null;},true);return;
+    case 'sel':ui.sel=ui.sel===cid?null:cid;ui.give=false;break;
+    case 'giveon':ui.give=true;break;
+    case 'giveoff':ui.give=false;break;
+    case 'playself':case 'cast':commit((c)=>G.act(c,me,{t:'play',c:ui.sel,to:me}));return;
+    case 'playto':commit((c)=>G.act(c,me,{t:'play',c:ui.sel,to:+el.dataset.p}));return;
+    case 'market':commit((c)=>G.act(c,me,{t:'market',c:ui.sel,m:cid}));return;
+    case 'redraw':commit((c)=>G.act(c,me,{t:'redraw'}));return;
+    case 'reinc':commit((c)=>G.act(c,me,{t:'reinc'}));return;
+    case 'skill':commit((c)=>G.act(c,me,{t:'skill'}));return;
+    case 'end':commit((c)=>G.act(c,me,{t:'end'}));return;
+    case 'ans':commit((c)=>G.respond(c,me,el.dataset.v));return;
+    case 'psel':{const p=S.prompt;if(!p)return;const i=ui.psel.indexOf(cid);if(i>=0)ui.psel.splice(i,1);else{if(p.max===1)ui.psel=[cid];else if(ui.psel.length<p.max)ui.psel.push(cid);}break;}
+    case 'pok':{const sel=ui.psel.slice();commit((c)=>G.respond(c,me,sel));return;}
+  }
+  render();
+});
+
+// ---------- 啟動 ----------
+render();
+(async function boot(){
+  try{
+    if(window.claude&&typeof window.claude.use==='function'){
+      const r=await Promise.all([window.claude.use('db'),window.claude.use('user')]);db=r[0];user=r[1];
+      if(user){uid=await user.id();canWrite=await user.can('data.write');}
+    }
+  }catch(e){db=null;}
+  if(db&&!uid){uid=store.get('ew-uid');if(!uid){uid='x'+Math.random().toString(36).slice(2,12);store.set('ew-uid',uid);}}
+  capReady=true;render();
+})();
+})();
+</script>
+</body>
+</html>
