@@ -129,7 +129,7 @@ var G = (function () {
     });
     shuffle(pool);
     const s = {
-      phase: 'play', opts: Object.assign({ facN: 2, skill: 'life' }, opts || {}),
+      phase: 'play', opts: { facN: 2, skill: 'life' }, // 固定規則：陣營勝利每人專屬裝備 2 張；角色技能每次轉生 1 次
       players: seats.map((p, i) => ({ id: p.id, name: p.name, bot: !!p.bot, hand: [], front: [], role: { n: pool[i], rev: false, used: false } })),
       turn: 0, acted: false, round: 1,
       deck: shuffle(CARDS.map((c) => c.id)), discard: [], market: [],
