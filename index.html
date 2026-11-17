@@ -114,7 +114,11 @@ label{font-size:13px;color:var(--dim);display:flex;flex-direction:column;gap:4px
 .sheet{background:var(--table-2);border:1px solid var(--ember);border-bottom:0;border-radius:14px 14px 0 0;padding:16px;width:min(880px,100%);max-height:86%;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
 .sheet h2{font-size:19px;overflow-wrap:anywhere}
 .shade.mid{align-items:center}.shade.mid .sheet{border-bottom:1px solid var(--ember);border-radius:14px}
-.rules h3{font-size:16px;margin-top:6px;color:var(--ember)} .rules p,.rules li{font-size:14px;max-width:65ch} .rules ul,.rules ol{margin:4px 0;padding-left:1.3em}
+.rules{gap:2px;padding:20px 26px}
+.rules h3{font-size:16px;margin:16px 0 4px;color:var(--ember)}
+.rules p,.rules li{font-size:14px;line-height:1.85;max-width:none;margin:0;line-break:strict;word-break:normal;overflow-wrap:break-word;text-wrap:pretty}
+.rules li{margin:3px 0}
+.rules ul,.rules ol{margin:2px 0 4px;padding-left:1.4em}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--r);color:#fff;padding:8px 16px;border-radius:8px;z-index:9;max-width:90%}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
