@@ -1231,7 +1231,7 @@ function detailHTML(){
   if(ui.pile&&S)return `<div class="shade mid" data-a="close"><div class="sheet"><h2>棄牌堆（${S.discard.length}）</h2><div class="cards">${S.discard.slice().reverse().map((c)=>cardHTML(c)).join('')||'<span class="dim">空的</span>'}</div><div><button class="btn" data-a="close">關閉</button></div></div></div>`;
   if(ui.gallery){
     const seen={},mg=G.CARDS.filter((c)=>c.k==='M'&&!seen[c.fn]&&(seen[c.fn]=1));
-    return `<div class="shade mid"><div class="sheet gal"><div class="row" style="justify-content:space-between"><h2>卡牌圖鑑</h2><button class="btn" data-a="close">關閉</button></div>
+    return `<div class="shade mid" data-a="close"><div class="sheet gal"><div class="row" style="justify-content:space-between"><h2>卡牌圖鑑</h2><button class="btn" data-a="close">關閉</button></div>
     <h3>角色卡（15）</h3><div class="cards">${Object.keys(ROLES).map((r)=>roleCardHTML(r,{})).join('')}</div>
     <h3>裝備卡（56）</h3><div class="cards">${G.CARDS.filter((c)=>c.k==='E').map((c)=>cardHTML(c.id)).join('')}</div>
     <h3>功能卡（10 種，共 52 張）</h3><div class="cards">${mg.map((c)=>cardHTML(c.id)).join('')}</div>
@@ -1248,7 +1248,7 @@ function detailOne(){
 function rulesHTML(){
   if(!ui.rules)return '';
   const rl=Object.keys(ROLES).map((r)=>`<li><b class="tag-${facKey(r)}">${r}</b>（${FAC[ROLES[r].f].nation}，戰鬥指數 ${ROLES[r].pw}）「${ROLES[r].sk}」：${ROLES[r].d}</li>`).join('');
-  return `<div class="shade mid"><div class="sheet rules"><div class="row" style="justify-content:space-between"><h2>遊戲規則</h2><span class="row"><button class="btn" data-a="gallery">卡牌圖鑑</button><button class="btn" data-a="close">關閉</button></span></div>
+  return `<div class="shade mid" data-a="close"><div class="sheet rules"><div class="row" style="justify-content:space-between"><h2>遊戲規則</h2><span class="row"><button class="btn" data-a="gallery">卡牌圖鑑</button><button class="btn" data-a="close">關閉</button></span></div>
   <h3>準備</h3><p>4–8 人。4–6 人時每個陣營取 2 張角色、7–8 人取 3 張，洗勻後每人發一張（不公開），其餘角色進角色牌庫。每人 5 張資源卡（56 張裝備＋52 張功能卡），市集翻開 3 張。</p>
   <h3>你的回合：四選一</h3><ol><li><b>發動一張資源卡</b>：裝備可放到自己或任何玩家面前（對方可收下，或退回到你面前）；打出後你可以選擇發動它的技能。功能卡發動後進棄牌堆。</li><li><b>與市集交換</b>一張手牌。</li><li>手牌<b>全是裝備或全是功能卡</b>時，可換掉全部手牌。</li><li><b>轉生</b>：換一張新角色，並強制觸發一張事件。</li></ol>
   <p>回合中另可發動角色技能（不算動作）。發動技能會<b>揭露角色</b>，直到轉生。結束回合時手牌補到 5 張；回合外打出【無效】要等到自己回合結束才補牌。</p>
