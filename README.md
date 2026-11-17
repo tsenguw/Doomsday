@@ -25,10 +25,16 @@ Firebase 需要的設定：
         ".read": "auth != null",
         ".write": "auth != null"
       }
+    },
+    "idx": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }
 ```
+
+`idx` 記錄每個房間最後活動時間，用來清除閒置超過 24 小時的房間（任何人開啟頁面時會順手清理）。
 
 ## 原始碼
 

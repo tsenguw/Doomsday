@@ -967,7 +967,8 @@ function commit(fn,keep){
 }
 function push(patch){
   if(local||!net)return;
-  const body=Object.assign({},net.doc,patch,{v:V});net.doc=body;lastS=body.s||'';
+  const body=Object.assign({},net.doc,patch,{v:V,ts:Date.now()});net.doc=body;lastS=body.s||'';
+  if(db&&db.touch)db.touch(net.code,body.ts);
   chain=chain.then(()=>net.ref.set(body)).catch((e)=>{toast(e&&e.code==='invalid_argument'?'寫入被拒絕：你可能沒有這個頁面的編輯／參與權限，請房主調整分享設定。':'寫入失敗，請稍後再試（'+((e&&e.code)||'未知')+'）');});
 }
 function setDoc(patch){V++;push(patch);render();}
@@ -975,6 +976,7 @@ function subscribe(code){
   const ref=db.doc('games/'+code);
   net={code,ref,doc:null,seats:[],unsubs:[]};V=0;S=null;lastS='';mode='lobby';local=false;
   try{location.hash='room-'+code}catch(e){}
+  net.hb=setInterval(()=>{if(net&&net.doc&&net.doc.host===uid)push({});},30*60*1000); // 房主每 30 分鐘更新活動時間
   ui.loadNote='';const lt=setTimeout(()=>{ui.loadNote='連線較慢，資料可能尚未更新…';render()},10000);
   const dead=(e)=>{clearTimeout(lt);toast('連線中斷（'+((e&&e.code)||'')+'），請重新整理頁面後再加入。')};
   net.unsubs.push(ref.onSnapshot((snap)=>{
@@ -997,7 +999,7 @@ async function createRoom(){
   if(!needName())return;ui.busy=true;render();
   try{
     let code='';const A='ABCDEFGHJKLMNPQRSTUVWXYZ';for(let i=0;i<4;i++)code+=A[Math.floor(Math.random()*A.length)];
-    await db.doc('games/'+code).set({v:1,host:uid,phase:'lobby',bots:0,s:''});
+    const ts=Date.now();await db.doc('games/'+code).set({v:1,host:uid,phase:'lobby',bots:0,s:'',ts});if(db.touch)db.touch(code,ts);
     subscribe(code);await seatRef().set({name:myName,t:Date.now()});
   }catch(e){toast(e&&e.code==='invalid_argument'?'無法建立房間：你沒有這個頁面的寫入權限。':'建立房間失敗（'+((e&&e.code)||'')+'）');}
   ui.busy=false;render();
@@ -1009,13 +1011,14 @@ async function joinRoom(){
   try{
     const snap=await db.doc('games/'+code).get();
     if(!snap.exists){toast('找不到房間 '+code);}
+    else if(snap.data().ts&&Date.now()-snap.data().ts>ROOM_TTL){toast('房間 '+code+' 已閒置超過 24 小時而關閉');db.sweep&&db.sweep(Date.now()-ROOM_TTL).catch(()=>{});}
     else{const d=snap.data();subscribe(code);if(d.phase==='lobby')await seatRef().set({name:myName,t:Date.now()});}
   }catch(e){toast(e&&e.code==='invalid_argument'?'無法加入：你沒有這個頁面的寫入權限，請房主把你的分享權限調整為可參與／可編輯。':'加入失敗（'+((e&&e.code)||'')+'）');}
   ui.busy=false;render();
 }
 function needName(){myName=(myName||'').trim().slice(0,12);if(!myName){toast('請先輸入暱稱');return false;}store.set('ew-name',myName);return true;}
 function leave(silent){
-  if(net){net.unsubs.forEach((u)=>{try{u()}catch(e){}});if(!silent&&mode==='lobby'&&db){try{seatRef().delete().catch(()=>{})}catch(e){}}}
+  if(net){clearInterval(net.hb);net.unsubs.forEach((u)=>{try{u()}catch(e){}});if(!silent&&mode==='lobby'&&db){try{seatRef().delete().catch(()=>{})}catch(e){}}}
   net=null;S=null;V=0;local=false;mode='home';clearTimeout(botT);botT=null;try{location.hash=''}catch(e){}render();
 }
 function startOnline(){
@@ -1321,6 +1324,7 @@ const FB_CONFIG={
   appId:"1:846164060270:web:0578586e747342011d9e7f"
 };
 const FB_VER='10.12.2';
+const ROOM_TTL=24*3600*1000; // 房間閒置超過 24 小時即清除
 function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('load '+src));document.head.appendChild(s);});}
 function fbAdapter(fdb){
   // 路徑對照：games/X → g/X/d；games/X/seats → g/X/seats；games/X/seats/U → g/X/seats/U
@@ -1334,6 +1338,13 @@ function fbAdapter(fdb){
       delete:()=>wrap(()=>ref.remove()),
       onSnapshot(next,err){const cb=(s)=>next(snapOf(s));ref.on('value',cb,(e)=>err&&err({code:'unavailable',message:String(e)}));return ()=>ref.off('value',cb);}
     };},
+    touch(code,ts){fdb.ref('idx/'+code).set(ts).catch(()=>{});},
+    async sweep(cutoff){
+      const s=await fdb.ref('idx').orderByValue().endAt(cutoff).limitToFirst(50).get();const codes=[];
+      s.forEach((c)=>{codes.push(c.key);});
+      for(const c of codes){await fdb.ref('g/'+c).remove();await fdb.ref('idx/'+c).remove();}
+      return codes.length;
+    },
     collection(path){const ref=fdb.ref(map(path));return {
       onSnapshot(next,err){const cb=(s)=>{const docs=[];s.forEach((c)=>{docs.push({id:c.key,exists:true,data:()=>c.val()});});next({docs,size:docs.length,empty:!docs.length});};
         ref.on('value',cb,(e)=>err&&err({code:'unavailable',message:String(e)}));return ()=>ref.off('value',cb);}
@@ -1349,6 +1360,7 @@ async function bootFirebase(){
   catch(e){netErr='匿名登入失敗：請到 Firebase 主控台的 Authentication 開啟「匿名」登入方式。';throw e;}
   const fdb=firebase.database(app);
   db=fbAdapter(fdb);NET='firebase';
+  db.sweep(Date.now()-ROOM_TTL).catch(()=>{}); // 進站時順手清掉過期房間
 }
 (async function boot(){
   const inClaude=!!(window.claude&&typeof window.claude.use==='function');
