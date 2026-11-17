@@ -159,7 +159,7 @@ var G = (function () {
   }
   function facProgress(s, p) {
     const r = p.role.n, fc = frontCards(p);
-    if (r === '史萊姆') { const k = ['攻', '守', '他'].filter((t) => fc.some((c) => c.type === t)).length; return { have: k, need: 3, text: '攻／守／其他各 1 張' }; }
+    if (r === '史萊姆') return { have: fc.filter((c) => c.type === '他').length, need: s.opts.facN + 1, text: `其他類裝備 ${s.opts.facN + 1} 張` };
     return { have: fc.filter((c) => c.role === r).length, need: s.opts.facN, text: `${r}裝備 ${s.opts.facN} 張` };
   }
   function checkWin(s) {
