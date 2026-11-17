@@ -7,12 +7,12 @@ var G = (function () {
     勇者: { nation: '共和國', tag: '守', key: 'b' },
   };
   const ROLES = {
-    農夫: { f: '村民', pw: 2, sk: '種瓜得瓜', d: '將場面上任 3 張裝備移至自己面前（面前多於 5 張須棄牌）', win: ['蘋果', '烤蜥蜴串'] },
+    農夫: { f: '村民', pw: 2, sk: '種瓜得瓜', d: '將場面上任 1 張裝備移至自己面前（面前多於 5 張須棄牌）', win: ['蘋果', '烤蜥蜴串'] },
     商人: { f: '村民', pw: 5, sk: '賄絡', d: '棄掉任意張手牌，並抽取相同張數的資源加入手牌', win: ['鎖子甲', '英格蘭長弓'] },
     村姑: { f: '村民', pw: 3, sk: '第六感', d: '觀看所有玩家的角色卡', win: ['粉紅色圍裙', '牛角頭飾'] },
-    村長: { f: '村民', pw: 1, sk: '權威', d: '除了自己以外的所有玩家將面前一張裝備丟入棄牌堆', win: ['聖水', '村長家的地契'] },
+    村長: { f: '村民', pw: 1, sk: '權威', d: '除了自己以外的所有玩家將面前一張裝備丟入棄牌堆', ownN: 2, win: ['村長家的地契'] },
     幼童: { f: '村民', pw: 3, sk: '事不關己', d: '事件觸發時對自己無效（被動，不須發動）', passive: true, win: ['魔女玩偶', '替身木人'] },
-    小惡魔: { f: '魔王', pw: 4, sk: '惡作劇', d: '指定所有玩家的角色卡向上家／下家傳遞 N 次', win: ['磨刀石', '打火石'] },
+    小惡魔: { f: '魔王', pw: 4, sk: '惡作劇', d: '指定所有玩家的角色卡向上家／下家傳遞 N 次', win: ['塗毒的箭矢', '打火石'] },
     史萊姆: { f: '魔王', pw: 0, sk: '變形', d: '從角色牌庫抽 5 張，選 1 張變為該角色（不觸發事件）', win: [] },
     魔女: { f: '魔王', pw: 1, sk: '魅惑', d: '指定一名玩家，觀看其所有手牌及角色卡，並可交換任意張手牌', win: ['巫師帽', '化妝品'] },
     吸血鬼: { f: '魔王', pw: 1, sk: '吸血', d: '將場面上的吸血鬼裝備移至自己面前', win: ['備用惡魔角', '藍精靈墜子'] },
@@ -150,10 +150,11 @@ var G = (function () {
     const r = p.role.n, R = ROLES[r], fc = frontCards(p);
     if (r === '史萊姆') {
       const a = fc.filter((c) => c.type === '攻').length, d = fc.filter((c) => c.type === '守').length, o = fc.filter((c) => c.type === '他').length;
-      return [{ t: '任 1 個攻擊類裝備', ok: a >= 1 }, { t: '任 1 個防守類裝備', ok: d >= 1 }, { t: '任 2 個其他類裝備', ok: o >= 2 }];
+      return [{ t: '任 4 個其他類裝備', ok: o >= 4 }];
     }
     const own = fc.filter((c) => c.role === r && !(r === '魔女' && c.name === '變身藥水')).length;
-    return [{ t: `任 1 個${r}裝備${r === '魔女' ? '（變身藥水除外）' : ''}`, ok: own >= 1 }]
+    const need = R.ownN || 1;
+    return [{ t: `任 ${need} 個${r}裝備${r === '魔女' ? '（變身藥水除外）' : ''}`, ok: own >= need }]
       .concat(R.win.map((w) => ({ t: `${w}（${CARDS.find((c) => c.name === w).role}）`, ok: fc.some((c) => c.name === w) })));
   }
   function facProgress(s, p) {
@@ -483,7 +484,7 @@ var G = (function () {
   SKILL.農夫 = (s, pid) => {
     const cards = field(s).filter((x) => !x.lock && x.p !== pid).map((x) => ({ c: x.c, tag: tagOf(s, x) }));
     if (!cards.length) return log(s, '場面上沒有可移動的裝備。');
-    ask(s, pid, 'cards', 'farmer', { title: '種瓜得瓜：選至多 3 張裝備移至自己面前', cards, min: 1, max: Math.min(3, cards.length), sense: 'good' });
+    ask(s, pid, 'cards', 'farmer', { title: '種瓜得瓜：選 1 張裝備移至自己面前', cards, min: 1, max: 1, sense: 'good' });
   };
   RESP.farmer = (s, p, a) => { a.forEach((c) => { if (takeFront(s, c)) putFront(s, p.pid, c); }); log(s, `${nm(s, p.pid)} 把 ${a.map(cn).join('')} 移到自己面前。`); };
   SKILL.商人 = (s, pid) => {
