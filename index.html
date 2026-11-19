@@ -153,6 +153,35 @@ label{font-size:13px;color:var(--dim);display:flex;flex-direction:column;gap:4px
 .guide{margin:0 10px;font-size:13px;padding:6px 10px}
 .wait{padding:4px 10px;font-size:13px}
 }
+/* 開場前導短片（約 10 秒，可略過） */
+#intro{position:fixed;inset:0;z-index:200;background:#07060b;color:#efe4cc;overflow:hidden;font-family:var(--display);animation:introOut .4s ease 9.4s forwards}
+#intro .sc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vh;opacity:0;padding:0 8vw;text-align:center}
+#intro .sc svg{overflow:visible;width:min(86vw,520px);height:auto;max-height:46vh}
+#intro .cap{text-wrap:balance;font-size:clamp(19px,4.6vw,32px);line-height:1.6;letter-spacing:.06em;text-shadow:0 2px 14px #000}
+#intro .s1{background:radial-gradient(ellipse at 50% 78%,#5b4316 0,#161018 60%,#07060b 100%);animation:scFade 2.5s ease 0s both}
+#intro .s2{background:radial-gradient(ellipse at 50% 100%,#6b1a14 0,#1a0c10 60%,#07060b 100%);animation:scFade 2.6s ease 2.2s both}
+#intro .s3{background:radial-gradient(ellipse at 50% 30%,#2b1d4a 0,#0d0a18 62%,#050409 100%);animation:scFade 3s ease 4.5s both}
+#intro .s4{background:radial-gradient(ellipse at 50% 50%,#26202c 0,#0b0910 70%);animation:scIn .7s ease 7.4s both}
+@keyframes scFade{0%{opacity:0}16%{opacity:1}84%{opacity:1}100%{opacity:0}}
+@keyframes scIn{0%{opacity:0}100%{opacity:1}}
+@keyframes introOut{to{opacity:0}}
+@keyframes rise{0%{transform:translateY(24px) scale(.7);opacity:0}100%{transform:none;opacity:1}}
+@keyframes sway{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes flash{0%,60%,100%{opacity:.15}64%,70%{opacity:1}}
+@keyframes pop{0%{transform:scale(.4);opacity:0}100%{transform:none;opacity:1}}
+#intro .s1 .orb{transform-origin:50px 40px;animation:rise 2.2s ease .1s both}
+#intro .s1 .wv{animation:sway 1.6s ease-in-out infinite}
+#intro .s2 .sw{transform-origin:50px 30px;animation:pop .9s ease .5s both}
+#intro .s2 .fl{animation:sway .7s ease-in-out infinite}
+#intro .s3 .bolt{animation:flash 1.6s linear infinite}
+#intro .s3 .eye{transform-origin:50px 28px;animation:pop 1s ease .3s both}
+#intro .s4 .em1{animation:pop .7s ease 7.8s both}#intro .s4 .em2{animation:pop .7s ease 8.1s both}#intro .s4 .em3{animation:pop .7s ease 8.4s both}
+#intro .ttl{font-size:clamp(34px,10vw,64px);letter-spacing:.3em;color:#e3a33b;text-shadow:0 0 22px rgba(227,163,59,.5);animation:pop .8s ease 8.4s both}
+#intro .bar2{position:absolute;left:0;bottom:0;height:3px;background:#e3a33b;width:0;animation:introBar 9.8s linear forwards}
+@keyframes introBar{to{width:100%}}
+#intro .skip{position:absolute;right:16px;bottom:18px;z-index:2;background:rgba(0,0,0,.45);color:#efe4cc;border:1px solid #6b5a44;border-radius:99px;padding:6px 18px;font:600 14px/1 var(--body);letter-spacing:.2em;cursor:pointer}
+#intro .skip:hover{border-color:#e3a33b;color:#e3a33b}
+@media(prefers-reduced-motion:reduce){#intro *{animation-duration:.01s!important;animation-iteration-count:1!important}#intro .sc{animation-duration:2.5s!important}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -1062,8 +1091,31 @@ function startLocal(){
   if(!needName())return;const seats=[{id:'me',name:myName}];for(let i=0;i<ui.practice;i++)seats.push({id:'bot'+i,name:BOTN[i],bot:true});
   local=true;net=null;S=G.newGame(seats);V=1;mode='game';render();
 }
+
+// ---------- 開場前導短片 ----------
+let introOn=false,introKey='',introT=null;
+const INTRO_HTML=`<div class="sc s1"><svg viewBox="0 0 100 56" aria-hidden="true"><defs><radialGradient id="ig1"><stop offset="0" stop-color="#fff2b8"/><stop offset=".5" stop-color="#e3a33b"/><stop offset="1" stop-color="#e3a33b" stop-opacity="0"/></radialGradient></defs><g class="orb"><circle cx="50" cy="34" r="22" fill="url(#ig1)"/><circle cx="50" cy="34" r="8" fill="#fff6d6"/></g><path d="M-60 46 L-30 38 L-12 30 L2 38 L18 24 L34 36 L50 20 L66 34 L82 26 L100 38 L116 30 L130 40 L160 46 V300 H-60Z" fill="#17121c"/><g class="wv"><path d="M-60 48 q10 -4 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 V300 H-60Z" fill="#26324a" opacity=".9"/></g></svg><div class="cap">創世神手一捻，創造了大地、天空與海洋。</div></div>
+<div class="sc s2"><svg viewBox="0 0 100 56" aria-hidden="true"><g class="sw"><path d="M30 8 L70 48" stroke="#d8cdb4" stroke-width="3.5" stroke-linecap="round"/><path d="M70 8 L30 48" stroke="#d8cdb4" stroke-width="3.5" stroke-linecap="round"/><path d="M26 12 l8 -6 M74 12 l-8 -6" stroke="#a2947b" stroke-width="3" stroke-linecap="round"/><circle cx="50" cy="28" r="4" fill="#c4452b"/></g><g class="fl" fill="#e0642a"><path d="M8 56 q4 -14 8 -4 q3 -10 8 4Z"/><path d="M76 56 q4 -16 9 -5 q3 -9 8 5Z"/><path d="M38 56 q3 -9 6 -3 q3 -7 6 3Z" fill="#f0a23a"/></g></svg><div class="cap">千年後，戰爭不斷爆發，和平的景象不再。</div></div>
+<div class="sc s3"><svg viewBox="0 0 100 56" aria-hidden="true"><path class="bolt" d="M44 0 L52 14 L46 16 L56 34 L48 34 L54 52" fill="none" stroke="#c9b6ff" stroke-width="2"/><g class="eye"><path d="M22 28 q28 -22 56 0 q-28 22 -56 0Z" fill="#120d20" stroke="#a078d8" stroke-width="2"/><circle cx="50" cy="28" r="8" fill="#a078d8"/><circle cx="50" cy="28" r="3" fill="#05030a"/></g></svg><div class="cap">他憤怒宣告：世界即將毀滅，<br>只留下最後的勝利族群。</div></div>
+<div class="sc s4"><svg viewBox="0 0 100 40" aria-hidden="true"><g class="em1"><path d="M4 30 L4 16 L10 22 L16 12 L22 22 L28 16 L28 30Z" fill="#c4452b"/></g><g class="em2"><path d="M50 10 L64 14 V26 Q64 34 50 38 Q36 34 36 26 V14Z" transform="translate(0,-2)" fill="#3d7bd4"/></g><g class="em3"><path d="M72 30 V20 L84 12 L96 20 V30Z" fill="#4a9b55"/><rect x="81" y="23" width="6" height="7" fill="#12200f"/></g></svg><div class="ttl">末日三族</div><div class="cap">三大族群，為了生存而展開激鬥……</div></div>
+<div class="bar2"></div><button class="skip" type="button" aria-label="略過開場動畫">SKIP ›</button>`;
+function endIntro(){
+  if(!introOn)return;introOn=false;clearTimeout(introT);const el=document.getElementById('intro');if(el)el.remove();tick();
+}
+function startIntro(){
+  if(introOn)return;introOn=true;clearTimeout(botT);botT=null;
+  const el=document.createElement('div');el.id='intro';el.setAttribute('role','img');el.setAttribute('aria-label','故事起源：創世神創造世界，千年後戰爭爆發，三大族群為生存展開激鬥');el.innerHTML=INTRO_HTML;
+  el.querySelector('.skip').addEventListener('click',endIntro);document.body.appendChild(el);
+  introT=setTimeout(endIntro,9800);
+}
+document.addEventListener('keydown',(e)=>{if(introOn&&(e.key==='Escape'||e.key==='Enter'||e.key===' '))endIntro();});
+function maybeIntro(){
+  if(mode!=='game'||!S||S.phase!=='play'||S.log.length>1||S.round>1)return;
+  const k=S.players.map((p)=>p.hand.join('.')).join('|');
+  if(k!==introKey){introKey=k;startIntro();}
+}
 function tick(){
-  if(botT||!S||S.phase!=='play'||!isHost())return;
+  if(introOn||botT||!S||S.phase!=='play'||!isHost())return;
   if(!S.players[actor()].bot)return;
   botT=setTimeout(()=>{botT=null;if(!S||S.phase!=='play'||!isHost())return;const m=G.bot(S);if(!m||!S.players[m.pid].bot)return;
     if(!commit((c)=>m.act?G.act(c,m.pid,m.act):G.respond(c,m.pid,m.ans),true))tick();},S.prompt&&S.prompt.kind==='view'?250:850);
@@ -1292,6 +1344,7 @@ function rulesHTML(){
   <h3>連線版的補充裁定</h3><ul><li>「上家／下家」取代左右：下家是回合順序的下一位。</li><li>角色技能每次轉生只能用一次。</li><li>【無效】只詢問手上有這張牌的玩家，不能再被無效。</li><li>資源、角色資訊都存在共用的房間資料裡，畫面只顯示你該看到的部分；這是朋友間的遊戲，沒有防作弊機制。</li></ul></div></div>`;
 }
 function render(){
+  maybeIntro();
   const app=$('#app');let h;
   if(mode==='home')h=homeHTML();else if(mode==='lobby'||!S)h=net?lobbyHTML():homeHTML();else h=gameHTML()+promptHTML()+overHTML();
   const ae=document.activeElement,keep=ae&&ae.id&&(ae.tagName==='INPUT')?{id:ae.id,v:ae.value,s:ae.selectionStart}:null;
