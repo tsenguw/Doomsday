@@ -1051,6 +1051,7 @@ function leave(silent){
   if(net){clearInterval(net.hb);net.unsubs.forEach((u)=>{try{u()}catch(e){}});if(!silent&&mode==='lobby'&&db){try{seatRef().delete().catch(()=>{})}catch(e){}}}
   net=null;S=null;V=0;local=false;mode='home';clearTimeout(botT);botT=null;try{location.hash=''}catch(e){}render();
 }
+function botRange(h){return [Math.max(0,4-h),Math.max(0,6-h)];} // 真人＋電腦須為 4–6 人
 function startOnline(){
   const d=net.doc,seats=net.seats.map((x)=>({id:x.id,name:String(x.name||'玩家').slice(0,12)}));
   for(let i=0;i<(d.bots||0);i++)seats.push({id:'bot'+i,name:BOTN[i],bot:true});
@@ -1107,7 +1108,10 @@ function homeHTML(){
 function lobbyHTML(){
   const d=net.doc,host=isHost();
   if(!d)return `<div class="wrap"><p class="dim">連線中…${esc(ui.loadNote)}</p><div><button class="btn" data-a="leave">返回</button></div></div>`;
-  const total=net.seats.length+(d.bots||0),seated=net.seats.some((x)=>x.id===uid);
+  const humans=net.seats.length,[lo,hi]=botRange(humans),cur=d.bots||0,fixed=Math.min(hi,Math.max(lo,cur));
+  if(host&&fixed!==cur&&net.seats.length)setTimeout(()=>{if(net&&net.doc&&isHost()&&mode==='lobby'&&net.doc.bots!==fixed)setDoc({bots:fixed});},0);
+  const total=humans+cur,seated=net.seats.some((x)=>x.id===uid);
+  const opts=[];for(let n=lo;n<=hi;n++)opts.push(n);if(!opts.includes(cur))opts.push(cur);
   return `<div class="wrap"><div class="hero"><p class="dim small">房號</p><div class="code">${net.code}</div><p>把房號告訴朋友，請他們開啟同一個網址後輸入加入；也可以直接傳邀請連結。${esc(ui.loadNote)}</p>${NET==='firebase'?`<div class="row"><input type="text" id="invite" readonly value="${esc(inviteURL())}" style="flex:1;min-width:0"><button class="btn" data-a="copyinv">複製邀請連結</button></div>`:''}</div>
   <div class="panel"><h2>玩家（${total}／6）</h2>
     ${net.seats.map((x)=>`<div class="seat"><span>${esc(x.name)}${x.id===uid?' <span class="dim">（你）</span>':''}</span><span class="dim small">${x.id===d.host?'房主':''}</span></div>`).join('')}
@@ -1115,7 +1119,8 @@ function lobbyHTML(){
     ${!seated?'<p class="hint">你尚未入座。<button class="btn sm" data-a="sit">入座</button></p>':''}
   </div>
   <div class="panel"><h2>設定${host?'':'（由房主決定）'}</h2><div class="row">
-    <label for="ob">電腦玩家<select id="ob" ${host?'':'disabled'}>${[0,1,2,3,4,5].map((n)=>`<option value="${n}" ${n===(d.bots||0)?'selected':''}>${n} 位</option>`).join('')}</select></label>
+    <label for="ob">電腦玩家<select id="ob" ${host?'':'disabled'}>${opts.map((n)=>`<option value="${n}" ${n===cur?'selected':''}>${n} 位</option>`).join('')}</select></label>
+    <span class="hint">目前 ${humans} 位真人，電腦可選 ${lo}${hi>lo?'–'+hi:''} 位（真人＋電腦需 4–6 人）。</span>
   </div></div>
   <div class="row">${host?`<button class="btn pri" data-a="start" ${total>=4&&total<=6?'':'disabled'}>開始遊戲</button>`:'<span class="dim">等待房主開始…</span>'}
     <button class="btn" data-a="rules">遊戲規則</button><button class="btn" data-a="leave">離開房間</button>
