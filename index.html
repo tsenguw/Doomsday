@@ -140,11 +140,11 @@ var G = (function () {
     商人: { f: '村民', pw: 5, sk: '賄絡', d: '棄掉任意張手牌，並抽取相同張數的資源加入手牌', win: ['鎖子甲', '英格蘭長弓'] },
     村姑: { f: '村民', pw: 3, sk: '第六感', d: '觀看所有玩家的角色卡', win: ['粉紅色圍裙', '牛角頭飾'] },
     村長: { f: '村民', pw: 1, sk: '權威', d: '除了自己以外的所有玩家將面前一張裝備丟入棄牌堆', ownN: 2, win: ['村長家的地契'] },
-    幼童: { f: '村民', pw: 3, sk: '事不關己', d: '事件觸發時對自己無效（被動，不須發動）', passive: true, win: ['魔女玩偶', '替身木人'] },
+    幼童: { f: '村民', pw: 3, sk: '事不關己', d: '事件觸發時對自己無效（被動，不須發動）', passive: true, ownN: 2, win: ['魔女玩偶'] },
     小惡魔: { f: '魔王', pw: 4, sk: '惡作劇', d: '指定所有玩家的角色卡向上家／下家傳遞 N 次', win: ['塗毒的箭矢', '打火石'] },
-    史萊姆: { f: '魔王', pw: 0, sk: '變形', d: '從角色牌庫抽 5 張，選 1 張變為該角色（不觸發事件）', win: [] },
-    魔女: { f: '魔王', pw: 1, sk: '魅惑', d: '指定一名玩家，觀看其所有手牌及角色卡，並可交換任意張手牌', win: ['巫師帽', '化妝品'] },
-    吸血鬼: { f: '魔王', pw: 1, sk: '吸血', d: '將場面上的吸血鬼裝備移至自己面前', win: ['備用惡魔角', '藍精靈墜子'] },
+    史萊姆: { f: '魔王', pw: 1, sk: '變形', d: '從角色牌庫抽 5 張，選 1 張變為該角色（不觸發事件）', win: [] },
+    魔女: { f: '魔王', pw: 2, sk: '魅惑', d: '指定一名玩家，觀看其所有手牌及角色卡，並可交換任意張手牌', win: ['巫師帽', '化妝品'] },
+    吸血鬼: { f: '魔王', pw: 3, sk: '吸血', d: '將場面上的吸血鬼裝備移至自己面前', win: ['備用惡魔角', '藍精靈墜子'] },
     食人魔: { f: '魔王', pw: 3, sk: '豪華大餐', d: '將所有玩家面前的裝備重新洗牌，再由自己開始平均分配', win: ['鐮刀', '拐杖'] },
     弓箭手: { f: '勇者', pw: 3, sk: '百發百中', d: '將所有手牌與指定某一玩家交換', win: ['毒蘋果', '裝備箱'] },
     劍士: { f: '勇者', pw: 2, sk: '鬥氣', d: '指定一名玩家決鬥，贏了可將對方面前所有劍士裝備移至自己面前，輸了不失去裝備', win: ['劍士的磨刀石', '斗笠'] },
@@ -181,15 +181,14 @@ var G = (function () {
     ['食人魔', '屠刀', '攻', 'gamble'], ['食人魔', '粉紅色圍裙', '守', 'takeDef'], ['食人魔', '巨型餐具', '他', 'lockSelfIf', { r: '食人魔' }], ['食人魔', '打火石', '他', 'discardNamed', '磨刀石'],
   ];
   const MAG = [
-    ['evPeek', '事件更動', 4, '查看事件牌庫頂的卡，並決定是否移至牌庫底'],
-    ['evTrigger', '事件觸發', 3, '抽取一張事件卡並發動'],
+    ['evTrigger', '事件觸發', 6, '抽取一張事件卡並發動'],
     ['gatherA', '資源蒐集・奪取', 6, '將場面上或市集中任一張裝備移至自己面前'],
-    ['gatherB', '資源蒐集・探索', 6, '抽資源牌庫兩張，選一張收回手牌，另一張洗回牌庫'],
-    ['viewHand', '資源觀看', 6, '指定任一玩家，觀看其所有手牌'],
+    ['gatherB', '資源蒐集・探索', 3, '抽資源牌庫兩張，選一張收回手牌，另一張洗回牌庫'],
+    ['viewHand', '資源觀看', 3, '指定任一玩家，觀看其所有手牌'],
     ['swapEq', '資源交換', 6, '指定一名玩家與一種裝備（名稱或角色），對方手牌有就與你交換一張手牌裝備，沒有則無效'],
     ['wind', '資源大風吹', 6, '指定手牌流向：所有人把手牌傳給上家／下家，或向上家／下家抽一張'],
-    ['viewRole', '角色觀看', 6, '指定任一玩家，觀看其角色'],
-    ['duel', '決鬥', 3, '以角色戰鬥指數決鬥，贏家從輸家面前拿 N 張裝備（N＝指數差）'],
+    ['viewRole', '角色觀看', 3, '指定任一玩家，觀看其角色'],
+    ['duel', '決鬥', 6, '以角色戰鬥指數決鬥，贏家從輸家面前拿 N 張裝備（N＝指數差）'],
     ['nullify', '無效', 6, '在別人發動功能卡或裝備技能時打出，使其無效'],
   ];
   const EVENTS = [
@@ -249,7 +248,7 @@ var G = (function () {
   // ---------- setup ----------
   function newGame(seats, opts) {
     const n = seats.length;
-    const per = n <= 6 ? 2 : 3;
+    const per = 2; // 4–6 人，每個陣營取 2 張角色
     let pool = [];
     const rest = [];
     Object.keys(FAC).forEach((f) => {
@@ -432,12 +431,6 @@ var G = (function () {
   OPS.magic = (s, st) => MAGIC[st.fn](s, st.pid);
   function castMagic(s, pid, cid) { withNull(s, pid, `功能卡${cn(cid)}`, [{ op: 'magic', fn: C(cid).fn, pid }], cid); }
   MAGIC.nullify = () => {};
-  MAGIC.evPeek = (s, pid) => {
-    if (!s.evDeck.length) { s.evDeck = shuffle(s.evDiscard); s.evDiscard = []; }
-    const e = EV[s.evDeck[0]];
-    ask(s, pid, 'choice', 'evPeek', { title: `事件牌庫頂是「${e.name}」`, sub: e.desc, opts: [{ id: 'keep', label: '留在牌庫頂' }, { id: 'bottom', label: '移至牌庫底' }] });
-  };
-  RESP.evPeek = (s, p, a) => { if (a === 'bottom') s.evDeck.push(s.evDeck.shift()); log(s, `${nm(s, p.pid)} 查看了事件牌庫頂${a === 'bottom' ? '，並移至牌庫底' : ''}。`); };
   MAGIC.evTrigger = (s, pid) => qFront(s, [{ op: 'event', pid }]);
   MAGIC.gatherA = (s, pid) => {
     const cards = field(s).filter((x) => !x.lock && x.p !== pid).map((x) => ({ c: x.c, tag: tagOf(s, x) }))
@@ -1028,7 +1021,7 @@ function leave(silent){
 function startOnline(){
   const d=net.doc,seats=net.seats.map((x)=>({id:x.id,name:String(x.name||'玩家').slice(0,12)}));
   for(let i=0;i<(d.bots||0);i++)seats.push({id:'bot'+i,name:BOTN[i],bot:true});
-  if(seats.length<4||seats.length>8)return toast('需要 4–8 位玩家（可加入電腦玩家補滿）');
+  if(seats.length<4||seats.length>6)return toast('需要 4–6 位玩家（可加入電腦玩家補滿）');
   S=G.newGame(seats);V++;push({phase:'play',s:JSON.stringify(S)});mode='game';render();
 }
 function startLocal(){
@@ -1066,7 +1059,7 @@ function roleLine(p,show){
 }
 function homeHTML(){
   const on=capReady&&db;
-  return `<div class="wrap"><div class="hero"><h1>末日三族</h1><p>創世神宣告毀滅世界，只留下最後資源爭奪戰的勝利者。帝國、共和國、公國三大族群，4–8 人連線對戰。</p></div>
+  return `<div class="wrap"><div class="hero"><h1>末日三族</h1><p>創世神宣告毀滅世界，只留下最後資源爭奪戰的勝利者。帝國、共和國、公國三大族群，4–6 人連線對戰。</p></div>
   <div class="panel"><label for="nm">你的暱稱<input type="text" id="nm" maxlength="12" value="${esc(myName)}" placeholder="最多 12 個字"></label></div>
   <div class="panel"><h2>連線對戰</h2>
     ${!capReady?'<p class="dim small">連線功能準備中…</p>':on?(canWrite===false?'<p class="hint">你目前對這個頁面只有檢視權限，無法建立或加入房間。請頁面擁有者把你的分享權限調整為可參與／可編輯。</p>':''):`<p class="hint">${esc(netErr||'這個畫面無法使用連線功能。')}仍可在下方單機練習。</p>`}
@@ -1074,7 +1067,7 @@ function homeHTML(){
     <span class="dim">或</span><input type="text" id="code" maxlength="4" size="6" placeholder="房號" value="${esc(ui.codeIn)}" style="text-transform:uppercase;letter-spacing:.2em">
     <button class="btn" data-a="join" ${on&&!ui.busy?'':'disabled'}>加入房間</button></div>
     <p class="dim small">${NET==='claude'?'所有玩家都要開啟同一個頁面連結並登入；':'所有玩家開啟同一個網址即可，不用登入；'}房主建立房間後把 4 碼房號或邀請連結傳給朋友。</p></div>
-  <div class="panel"><h2>單機練習</h2><div class="row"><label for="pr">電腦對手<select id="pr">${[3,4,5,6,7].map((n)=>`<option value="${n}" ${n===ui.practice?'selected':''}>${n} 位</option>`).join('')}</select></label>
+  <div class="panel"><h2>單機練習</h2><div class="row"><label for="pr">電腦對手<select id="pr">${[3,4,5].map((n)=>`<option value="${n}" ${n===ui.practice?'selected':''}>${n} 位</option>`).join('')}</select></label>
     <button class="btn" data-a="local">開始練習</button></div></div>
   <div class="row"><button class="btn" data-a="rules">遊戲規則</button><button class="btn" data-a="gallery">卡牌圖鑑</button></div></div>`;
 }
@@ -1083,17 +1076,17 @@ function lobbyHTML(){
   if(!d)return `<div class="wrap"><p class="dim">連線中…${esc(ui.loadNote)}</p><div><button class="btn" data-a="leave">返回</button></div></div>`;
   const total=net.seats.length+(d.bots||0),seated=net.seats.some((x)=>x.id===uid);
   return `<div class="wrap"><div class="hero"><p class="dim small">房號</p><div class="code">${net.code}</div><p>把房號告訴朋友，請他們開啟同一個網址後輸入加入；也可以直接傳邀請連結。${esc(ui.loadNote)}</p>${NET==='firebase'?`<div class="row"><input type="text" id="invite" readonly value="${esc(inviteURL())}" style="flex:1;min-width:0"><button class="btn" data-a="copyinv">複製邀請連結</button></div>`:''}</div>
-  <div class="panel"><h2>玩家（${total}／8）</h2>
+  <div class="panel"><h2>玩家（${total}／6）</h2>
     ${net.seats.map((x)=>`<div class="seat"><span>${esc(x.name)}${x.id===uid?' <span class="dim">（你）</span>':''}</span><span class="dim small">${x.id===d.host?'房主':''}</span></div>`).join('')}
     ${Array.from({length:d.bots||0},(_,i)=>`<div class="seat"><span>${BOTN[i]}</span><span class="dim small">電腦</span></div>`).join('')}
     ${!seated?'<p class="hint">你尚未入座。<button class="btn sm" data-a="sit">入座</button></p>':''}
   </div>
   <div class="panel"><h2>設定${host?'':'（由房主決定）'}</h2><div class="row">
-    <label for="ob">電腦玩家<select id="ob" ${host?'':'disabled'}>${[0,1,2,3,4,5,6,7].map((n)=>`<option value="${n}" ${n===(d.bots||0)?'selected':''}>${n} 位</option>`).join('')}</select></label>
+    <label for="ob">電腦玩家<select id="ob" ${host?'':'disabled'}>${[0,1,2,3,4,5].map((n)=>`<option value="${n}" ${n===(d.bots||0)?'selected':''}>${n} 位</option>`).join('')}</select></label>
   </div></div>
-  <div class="row">${host?`<button class="btn pri" data-a="start" ${total>=4&&total<=8?'':'disabled'}>開始遊戲</button>`:'<span class="dim">等待房主開始…</span>'}
+  <div class="row">${host?`<button class="btn pri" data-a="start" ${total>=4&&total<=6?'':'disabled'}>開始遊戲</button>`:'<span class="dim">等待房主開始…</span>'}
     <button class="btn" data-a="rules">遊戲規則</button><button class="btn" data-a="leave">離開房間</button>
-    ${total<4?'<span class="hint">至少需要 4 位玩家，可用電腦玩家補滿。</span>':''}${total>8?'<span class="hint">最多 8 位玩家。</span>':''}</div></div>`;
+    ${total<4?'<span class="hint">至少需要 4 位玩家，可用電腦玩家補滿。</span>':''}${total>6?'<span class="hint">最多 6 位玩家。</span>':''}</div></div>`;
 }
 function gameHTML(){
   const me=myPid(),over=S.phase==='over',mine=me>=0?S.players[me]:null;
@@ -1234,7 +1227,7 @@ function detailHTML(){
     return `<div class="shade mid" data-a="close"><div class="sheet gal"><div class="row" style="justify-content:space-between"><h2>卡牌圖鑑</h2><button class="btn" data-a="close">關閉</button></div>
     <h3>角色卡（15）</h3><div class="cards">${Object.keys(ROLES).map((r)=>roleCardHTML(r,{})).join('')}</div>
     <h3>裝備卡（56）</h3><div class="cards">${G.CARDS.filter((c)=>c.k==='E').map((c)=>cardHTML(c.id)).join('')}</div>
-    <h3>功能卡（10 種，共 52 張）</h3><div class="cards">${mg.map((c)=>cardHTML(c.id)).join('')}</div>
+    <h3>功能卡（${mg.length} 種，共 ${G.CARDS.filter((c)=>c.k==='M').length} 張）</h3><div class="cards">${mg.map((c)=>cardHTML(c.id)).join('')}</div>
     <h3>地標卡（12）</h3><div class="cards">${G.EVENTS.map((e)=>eventCardHTML(e[0],{})).join('')}</div></div></div>`;
   }
   return '';
@@ -1249,11 +1242,11 @@ function rulesHTML(){
   if(!ui.rules)return '';
   const rl=Object.keys(ROLES).map((r)=>`<li><b class="tag-${facKey(r)}">${r}</b>（${FAC[ROLES[r].f].nation}，戰鬥指數 ${ROLES[r].pw}）「${ROLES[r].sk}」：${ROLES[r].d}</li>`).join('');
   return `<div class="shade mid" data-a="close"><div class="sheet rules"><div class="row" style="justify-content:space-between"><h2>遊戲規則</h2><span class="row"><button class="btn" data-a="gallery">卡牌圖鑑</button><button class="btn" data-a="close">關閉</button></span></div>
-  <h3>準備</h3><p>4–8 人。4–6 人時每個陣營取 2 張角色、7–8 人取 3 張，洗勻後每人發一張（不公開），其餘角色進角色牌庫。每人 5 張資源卡（56 張裝備＋52 張功能卡），市集翻開 3 張。</p>
+  <h3>準備</h3><p>4–6 人。每個陣營取 2 張角色，洗勻後每人發一張（不公開），其餘角色進角色牌庫。每人 5 張資源卡（${G.CARDS.filter((c)=>c.k==='E').length} 張裝備＋${G.CARDS.filter((c)=>c.k==='M').length} 張功能卡），市集翻開 3 張。</p>
   <h3>你的回合：四選一</h3><ol><li><b>發動一張資源卡</b>：裝備可放到自己或任何玩家面前（對方可收下，或退回到你面前）；打出後你可以選擇發動它的技能。功能卡發動後進棄牌堆。</li><li><b>與市集交換</b>一張手牌。</li><li>手牌<b>全是裝備或全是功能卡</b>時，可換掉全部手牌。</li><li><b>轉生</b>：換一張新角色，並強制觸發一張事件。</li></ol>
   <p>回合中另可發動角色技能（不算動作）。發動技能會<b>揭露角色</b>，直到轉生。結束回合時手牌補到 5 張；回合外打出【無效】要等到自己回合結束才補牌。</p>
   <h3>裝備</h3><p>每人面前最多 5 張，超過須自選棄掉。<b>橫放</b>（覆蓋）的裝備受到保護：不會被別人的技能、功能卡、事件移動或丟棄，仍計入勝利條件；只有「翻正橫放裝備」的技能能解除。</p>
-  <h3>勝利</h3><ul><li><b>個人勝利</b>：面前同時擁有角色卡指定的裝備：大多是「任 1 個自己角色的裝備＋2 張指定裝備」；村長是「任 2 個村長裝備＋村長家的地契」，史萊姆是「任 4 個其他類裝備」（畫面左下會顯示進度）。</li><li><b>陣營勝利</b>：同陣營（至少 2 人）每個人面前都有自己角色的專屬裝備 2 張。史萊姆沒有專屬裝備，改以其他類裝備 3 張計。</li></ul>
+  <h3>勝利</h3><ul><li><b>個人勝利</b>：面前同時擁有角色卡指定的裝備：大多是「任 1 個自己角色的裝備＋2 張指定裝備」；村長是「任 2 個村長裝備＋村長家的地契」，幼童是「任 2 個幼童裝備＋魔女玩偶」，史萊姆是「任 4 個其他類裝備」（畫面左下會顯示進度）。</li><li><b>陣營勝利</b>：同陣營（至少 2 人）每個人面前都有自己角色的專屬裝備 2 張。史萊姆沒有專屬裝備，改以其他類裝備 3 張計。</li></ul>
   <h3>決鬥</h3><p>比較雙方角色的戰鬥指數，高者勝；贏家從輸家面前拿 N 張未橫放的裝備（N＝指數差），平手無事。</p>
   <h3>事件</h3><p>事件依序對每位玩家結算，由觸發者開始；幼童不受影響。</p><ul>${G.EVENTS.map((e)=>`<li><b>${e[1]}</b>：${e[2]}</li>`).join('')}</ul>
   <h3>功能卡</h3><ul>${G.MAG.map((m)=>`<li><b>${m[1]}</b> ×${m[2]}：${m[3]}</li>`).join('')}</ul>

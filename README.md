@@ -1,6 +1,6 @@
 # 末日三族（Doomsday）
 
-4–8 人的卡牌桌遊線上版：帝國、共和國、公國三大族群爭奪最後的資源。
+4–6 人的卡牌桌遊線上版：帝國、共和國、公國三大族群爭奪最後的資源。
 
 - 線上遊玩：https://tsenguw.github.io/Doomsday/
 - 整個遊戲是單一檔案 `index.html`，不需要安裝或建置。
@@ -9,7 +9,7 @@
 
 - 從 GitHub Pages 開啟時，連線對戰使用 Firebase Realtime Database（專案 `doomsday-fb45a`），玩家不用登入，打開網址輸入暱稱即可建房或加入。
 - 從 Claude 發佈的頁面開啟時，使用 Claude 頁面內建的資料同步。
-- 也可以和 3–7 位電腦對手單機練習。
+- 也可以和 3–5 位電腦對手單機練習。
 
 Firebase 需要的設定：
 
