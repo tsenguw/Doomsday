@@ -119,6 +119,11 @@ label{font-size:13px;color:var(--dim);display:flex;flex-direction:column;gap:4px
 .rules p,.rules li{font-size:14px;line-height:1.85;max-width:none;margin:0;line-break:strict;word-break:normal;overflow-wrap:break-word;text-wrap:pretty}
 .rules li{margin:3px 0}
 .rules ul,.rules ol{margin:2px 0 4px;padding-left:1.4em}
+.off{color:#e0642a;font-weight:600}
+.coach{position:fixed;top:0;left:0;right:0;margin:0 auto;width:min(640px,100%);z-index:60;background:#1b2a36;border:2px solid var(--ember);border-top:0;border-radius:0 0 12px 12px;padding:8px 14px;box-shadow:0 6px 24px #000a;font-size:14px;line-height:1.6}
+.coach p{margin:4px 0 6px;max-width:none}
+.tut-hl{scroll-margin-top:150px;outline:3px solid var(--ember)!important;outline-offset:3px;animation:tutp 1.2s ease-in-out infinite}
+@keyframes tutp{50%{outline-color:#ffe08a;box-shadow:0 0 14px 4px #e3a33b88}}
 .rules .quote{border-left:3px solid var(--ember);padding-left:12px;margin:4px 0;opacity:.92}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--r);color:#fff;padding:8px 16px;border-radius:8px;z-index:9;max-width:90%}
 /* 手機版：縮小對手區與卡牌，把手牌與操作放到市集之後、紀錄之前 */
@@ -205,6 +210,7 @@ const BOTN=['電腦甲','電腦乙','電腦丙','電腦丁','電腦戊','電腦�
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 
 let db=null,user=null,uid=null,capReady=false,canWrite=null,NET='',netErr='';
+let tut=null;
 let mode='home',local=false,net=null,S=null,V=0,lastS='',chain=Promise.resolve(),botT=null,toastT=null;
 let myName=store.get('ew-name')||'';
 let NEED=()=>false;
@@ -234,9 +240,10 @@ function push(patch){
 function setDoc(patch){V++;push(patch);render();}
 function subscribe(code){
   const ref=db.doc('games/'+code);
-  net={code,ref,doc:null,seats:[],unsubs:[]};V=0;S=null;lastS='';mode='lobby';local=false;
+  net={code,ref,doc:null,seats:[],unsubs:[],seen:{},sig:'',offSince:0,mySeatT:0,presInit:false};V=0;S=null;lastS='';mode='lobby';local=false;store.set('ew-room',code);
   try{location.hash='room-'+code}catch(e){}
   net.hb=setInterval(()=>{if(net&&net.doc&&net.doc.host===uid)push({});},30*60*1000); // 房主每 30 分鐘更新活動時間
+  net.pw=setInterval(sendPresence,12000);net.pc=setInterval(presCheck,4000); // 在線心跳與房主接手檢查
   ui.loadNote='';const lt=setTimeout(()=>{ui.loadNote='連線較慢，資料可能尚未更新…';render()},10000);
   const dead=(e)=>{clearTimeout(lt);toast('連線中斷（'+((e&&e.code)||'')+'），請重新整理頁面後再加入。')};
   net.unsubs.push(ref.onSnapshot((snap)=>{
@@ -244,23 +251,71 @@ function subscribe(code){
     if(!snap.exists){if(!snap.metadata||!snap.metadata.fromCache){if(net&&net.doc){toast('房間已關閉');leave(true);}}return;}
     const d=snap.data();if(!net||typeof d.v!=='number'||d.v<V)return;
     if(d.v===V&&net.doc&&(d.s||'')===lastS&&d.phase===net.doc.phase&&d.bots===net.doc.bots)return;
+    const prevHost=net.doc&&net.doc.host;
     net.doc=Object.assign({},d);V=d.v;lastS=d.s||'';
     if(d.phase==='play'&&d.s){try{S=JSON.parse(d.s);mode='game';}catch(e){S=null;mode='lobby';}}else{S=null;mode='lobby';}
+    if(prevHost===uid&&d.host!==uid)toast('房主已改由其他玩家接手');
+    if(!net.presInit){net.presInit=true;sendPresence();}
     render();
   },dead));
   net.unsubs.push(db.collection('games/'+code+'/seats').onSnapshot((q)=>{
-    if(!net)return;net.seats=q.docs.map((d)=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.t||0)-(b.t||0));render();
+    if(!net)return;net.seats=q.docs.map((d)=>Object.assign({id:d.id},d.data())).sort((a,b)=>(a.t||0)-(b.t||0));
+    const now=Date.now();net.seats.forEach((x)=>{const k=String(x.seen||0),m=net.seen[x.id];if(!m||m.k!==k)net.seen[x.id]={k,at:now};});
+    net.sig=presSig();render();
   },dead));
   render();
 }
+// ---------- 在線狀態、重連、房主接手 ----------
+function online(id){
+  if(!net||id===uid||!id||id==='me'||String(id).indexOf('bot')===0)return true;
+  if(!net.seats.some((x)=>x.id===id))return false;
+  const m=net.seen[id];return !!m&&Date.now()-m.at<40000;
+}
+function presSig(){
+  if(!net)return '';
+  return net.seats.map((x)=>x.id+':'+x.name+':'+(online(x.id)?1:0)).join('|')+'#'+(S?S.players.map((p)=>(p.bot||online(p.id))?1:0).join(''):'');
+}
+function sendPresence(){
+  if(!net||!db||!net.doc)return;
+  const inSeat=net.seats.find((x)=>x.id===uid),pl=S&&myPid()>=0?S.players[myPid()]:null;
+  if(!inSeat&&!pl&&!net.mySeatT)return;
+  if(!net.mySeatT)net.mySeatT=(inSeat&&inSeat.t)||Date.now();
+  seatRef().set({name:(inSeat&&inSeat.name)||(pl&&pl.name)||myName||'玩家',t:net.mySeatT,seen:Date.now()}).catch(()=>{});
+}
+function hostCands(){
+  const ids=(mode==='game'&&S)?S.players.filter((p)=>!p.bot).map((p)=>p.id):net.seats.map((x)=>x.id);
+  const tOf=(id)=>{const x=net.seats.find((y)=>y.id===id);return x?(x.t||0):1e15;};
+  return ids.filter(online).sort((a,b)=>tOf(a)-tOf(b));
+}
+function presCheck(){
+  if(!net||!net.doc)return;
+  const sig=presSig();if(sig!==net.sig){net.sig=sig;render();}
+  const h=net.doc.host;
+  if(h===uid||online(h)){net.offSince=0;return;}
+  if(!net.offSince){net.offSince=Date.now();return;}
+  if(Date.now()-net.offSince<8000)return;
+  if(hostCands()[0]===uid){net.offSince=0;setDoc({host:uid});toast('房主已離線，由你接手房主（電腦玩家與開始遊戲交給你處理）');}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&net){sendPresence();presCheck();}});
+async function autoRejoin(code){
+  try{
+    const snap=await db.doc('games/'+code).get();
+    if(!snap.exists||(snap.data().ts&&Date.now()-snap.data().ts>ROOM_TTL)){store.set('ew-room','');return;}
+    const d=snap.data();subscribe(code);
+    if(d.phase==='lobby'&&myName)await mySeat();
+    toast('已自動回到房間 '+code);
+  }catch(e){}
+  render();
+}
 function inviteURL(){try{return location.href.split('#')[0]+'#room-'+(net?net.code:'')}catch(e){return ''}}
+function mySeat(){const t=Date.now();net.mySeatT=t;return seatRef().set({name:myName,t,seen:t});}
 function seatRef(){return db.doc('games/'+net.code+'/seats/'+uid)}
 async function createRoom(){
   if(!needName())return;ui.busy=true;render();
   try{
     let code='';const A='ABCDEFGHJKLMNPQRSTUVWXYZ';for(let i=0;i<4;i++)code+=A[Math.floor(Math.random()*A.length)];
     const ts=Date.now();await db.doc('games/'+code).set({v:1,host:uid,phase:'lobby',bots:0,s:'',ts});if(db.touch)db.touch(code,ts);
-    subscribe(code);await seatRef().set({name:myName,t:Date.now()});
+    subscribe(code);await mySeat();
   }catch(e){toast(e&&e.code==='invalid_argument'?'無法建立房間：你沒有這個頁面的寫入權限。':'建立房間失敗（'+((e&&e.code)||'')+'）');}
   ui.busy=false;render();
 }
@@ -272,14 +327,14 @@ async function joinRoom(){
     const snap=await db.doc('games/'+code).get();
     if(!snap.exists){toast('找不到房間 '+code);}
     else if(snap.data().ts&&Date.now()-snap.data().ts>ROOM_TTL){toast('房間 '+code+' 已閒置超過 24 小時而關閉');db.sweep&&db.sweep(Date.now()-ROOM_TTL).catch(()=>{});}
-    else{const d=snap.data();subscribe(code);if(d.phase==='lobby')await seatRef().set({name:myName,t:Date.now()});}
+    else{const d=snap.data();subscribe(code);if(d.phase==='lobby')await mySeat();}
   }catch(e){toast(e&&e.code==='invalid_argument'?'無法加入：你沒有這個頁面的寫入權限，請房主把你的分享權限調整為可參與／可編輯。':'加入失敗（'+((e&&e.code)||'')+'）');}
   ui.busy=false;render();
 }
 function needName(){myName=(myName||'').trim().slice(0,12);if(!myName){toast('請先輸入暱稱');return false;}store.set('ew-name',myName);return true;}
 function leave(silent){
-  if(net){clearInterval(net.hb);net.unsubs.forEach((u)=>{try{u()}catch(e){}});if(!silent&&mode==='lobby'&&db){try{seatRef().delete().catch(()=>{})}catch(e){}}}
-  net=null;S=null;V=0;local=false;mode='home';clearTimeout(botT);botT=null;try{location.hash=''}catch(e){}render();
+  if(net){clearInterval(net.hb);clearInterval(net.pw);clearInterval(net.pc);net.unsubs.forEach((u)=>{try{u()}catch(e){}});if(!silent&&db){try{seatRef().delete().catch(()=>{})}catch(e){}}}
+  store.set('ew-room','');tut=null;net=null;S=null;V=0;local=false;mode='home';clearTimeout(botT);botT=null;try{location.hash=''}catch(e){}render();
 }
 function botRange(h){return [Math.max(0,4-h),Math.max(0,6-h)];} // 真人＋電腦須為 4–6 人
 function startOnline(){
@@ -311,6 +366,7 @@ function startIntro(){
 }
 document.addEventListener('keydown',(e)=>{if(introOn&&(e.key==='Escape'||e.key==='Enter'||e.key===' '))endIntro();});
 function maybeIntro(){
+  if(tut)return;
   if(mode!=='game'||!S||S.phase!=='play'||S.log.length>1||S.round>1)return;
   const k=S.players.map((p)=>p.hand.join('.')).join('|');
   if(k!==introKey){introKey=k;startIntro();}
@@ -318,8 +374,99 @@ function maybeIntro(){
 function tick(){
   if(introOn||botT||!S||S.phase!=='play'||!isHost())return;
   if(!S.players[actor()].bot)return;
-  botT=setTimeout(()=>{botT=null;if(!S||S.phase!=='play'||!isHost())return;const m=G.bot(S);if(!m||!S.players[m.pid].bot)return;
+  botT=setTimeout(()=>{botT=null;if(!S||S.phase!=='play'||!isHost())return;const m=tut?tutBotMove():G.bot(S);if(!m||!S.players[m.pid].bot)return;
     if(!commit((c)=>m.act?G.act(c,m.pid,m.act):G.respond(c,m.pid,m.ans),true))tick();},S.prompt&&S.prompt.kind==='view'?250:850);
+}
+
+// ---------- 新手互動式教學 ----------
+const TUT_STEPS=[
+  {title:'歡迎來到末日',info:true,txt:'創世神宣告毀滅世界，只留下最後資源爭奪戰的勝利者。你是<b>村民會</b>的<b>農夫</b>。這堂課會帶你親手完成一次「個人勝利」，約 3 分鐘，不用連線。'},
+  {title:'你的目標',info:true,hl:['.me'],txt:'畫面左下的「勝利條件」寫著：把<b>蘋果、烤蜥蜴串</b>和<b>任 1 個農夫裝備</b>（例如鋤頭）都放到<b>你面前</b>，你就贏了。卡牌上標 ★ 的就是你需要的。'},
+  {title:'認識畫面',info:true,hl:['.opps'],txt:'上方是三位對手：你看得到他們的手牌張數與面前的裝備；他們的角色在<b>揭露前是蓋著的</b>，沒人知道誰是敵人、誰是夥伴。'},
+  {title:'市集與牌庫',info:true,hl:['.center'],txt:'中間是<b>市集</b>（可以拿手牌來交換），旁邊是資源牌庫、棄牌堆與事件牌庫，紀錄區會寫下每個人做了什麼。'},
+  {title:'動作一：打出裝備',hl:['.hand [data-c="22"]','[data-a="playself"]'],txt:'每回合你必須做<b>一個動作</b>。先點手牌的<b>【蘋果】</b>，再按「放到自己面前」。',
+    ok:()=>S.players[0].front.some((x)=>x.c===TUTC.apple),allow:(a,c)=>(a==='sel'&&c===TUTC.apple)||a==='playself'},
+  {title:'結束回合',hl:['[data-a="end"]'],txt:'做完動作後按<b>「結束回合」</b>，手牌會自動補到 5 張。',
+    ok:()=>S.turn!==0,allow:(a)=>a==='end'},
+  {title:'對手行動中',wait:true,txt:'三位電腦對手依序行動，請稍候……',ok:()=>S.turn===0&&!S.prompt&&!S.q.length&&!S.acted},
+  {title:'角色技能（不算動作）',hl:['[data-a="skill"]','[data-a="psel"][data-c="46"]'],txt:'輪到你了。<b>角色技能不算動作</b>：按「發動技能」，把場上的<b>【烤蜥蜴串】</b>搶到自己面前。⚠ 發動技能會<b>揭露你的角色</b>，直到轉生為止，所以要斟酌時機。',
+    ok:()=>S.players[0].front.some((x)=>x.c===TUTC.lizard),allow:(a,c)=>a==='skill'||(a==='psel'&&c===TUTC.lizard)||a==='pok'},
+  {title:'動作二：功能卡',hl:['.hand [data-c="VR"]','[data-a="cast"]'],txt:'功能卡可以偷看情報、搶奪裝備、發起決鬥。選手牌的<b>【角色觀看】</b>，按「發動」，再指定一位對手看他的角色。',
+    ok:()=>!S.players[0].hand.includes(TUTC.vr)&&!S.prompt&&!S.q.length,allow:(a,c)=>(a==='sel'&&c===TUTC.vr)||a==='cast'},
+  {title:'結束回合',hl:['[data-a="end"]'],txt:'再按一次<b>「結束回合」</b>。',ok:()=>S.turn!==0,allow:(a)=>a==='end'},
+  {title:'對手行動中',wait:true,txt:'對手們輪流行動中……',ok:()=>S.turn===0&&!S.prompt&&!S.q.length&&!S.acted},
+  {title:'動作三：與市集交換',hl:['.hand','.center .cards [data-c="0"]'],txt:'另一種動作是<b>與市集交換</b>：先選一張沒用的手牌，再點市集上的<b>【鋤頭】</b>（農夫裝備）。換進來的牌下回合就能打出。',
+    ok:()=>S.players[0].hand.includes(0),allow:(a,c)=>a==='sel'||(a==='market'&&c===0)},
+  {title:'結束回合',hl:['[data-a="end"]'],txt:'交換也算一個動作，按<b>「結束回合」</b>。',ok:()=>S.turn!==0,allow:(a)=>a==='end'},
+  {title:'對手行動中',wait:true,txt:'對手們輪流行動中……',ok:()=>S.turn===0&&!S.prompt&&!S.q.length&&!S.acted},
+  {title:'最後一步：湊齊獲勝',hl:['.hand [data-c="0"]','[data-a="playself"]'],txt:'把<b>【鋤頭】</b>放到自己面前，蘋果、烤蜥蜴串、鋤頭到齊就是個人勝利！若跳出裝備技能的提示，直接選「不選」再按確認即可。',
+    ok:()=>S.phase==='over',allow:(a,c)=>(a==='sel'&&c===0)||a==='playself'},
+  {done:true,title:'教學完成'}
+];
+const TUTC={};
+function tutSetup(){
+  const seats=[{id:'me',name:myName||'你'},{id:'bot0',name:BOTN[0],bot:true},{id:'bot1',name:BOTN[1],bot:true},{id:'bot2',name:BOTN[2],bot:true}];
+  const s=G.newGame(seats),idOf=(n)=>G.CARDS.find((c)=>c.name===n).id;
+  TUTC.apple=idOf('蘋果');TUTC.lizard=idOf('烤蜥蜴串');TUTC.vr=G.CARDS.find((c)=>c.fn==='viewRole').id;
+  const roles=['農夫','小惡魔','祭司','食人魔'];
+  s.players.forEach((p,i)=>{p.role={n:roles[i],rev:false,used:false};p.hand=[];p.front=[];});
+  s.roleDeck=Object.keys(ROLES).filter((r)=>!roles.includes(r)).sort(()=>Math.random()-.5);
+  const fixedMe=[TUTC.apple,TUTC.vr,idOf('錢袋'),idOf('塗毒的箭矢'),idOf('化妝品')];
+  const market=[idOf('鋤頭'),idOf('洗衣板'),idOf('老花眼鏡')];
+  const used=new Set(fixedMe.concat(market,[TUTC.lizard]));
+  let deck=G.CARDS.map((c)=>c.id).filter((i)=>!used.has(i)).sort(()=>Math.random()-.5);
+  s.players[0].hand=fixedMe.slice();
+  for(let b=1;b<4;b++){const R=ROLES[roles[b]],bad=(c)=>c.role===roles[b]||R.win.includes(c.name);
+    while(s.players[b].hand.length<5){const k=deck.findIndex((i)=>!bad(C(i)));s.players[b].hand.push(deck.splice(k<0?0:k,1)[0]);}}
+  s.players[1].front=[{c:TUTC.lizard,lock:false}];
+  s.deck=deck;s.discard=[];s.market=market;s.turn=0;s.acted=false;s.round=1;s.prompt=null;s.q=[];s.winners=null;
+  s.log=['教學開始：你是村民會的農夫。'];
+  return s;
+}
+function startTutorial(){
+  local=true;net=null;S=tutSetup();V=1;mode='game';tut={i:0};ui.sel=null;ui.give=false;ui.hideOver=false;render();
+}
+function tutBotMove(){
+  const pr=S.prompt;
+  if(pr){
+    if(!S.players[pr.pid].bot)return null;
+    if(pr.kind==='choice'){const o=pr.opts.find((x)=>x.id==='n')||pr.opts[0];return {pid:pr.pid,ans:o.id};}
+    if(pr.kind==='cards')return {pid:pr.pid,ans:pr.cards.slice(0,pr.min||0).map((x)=>x.c)};
+    return G.bot(S);
+  }
+  const p=S.players[S.turn];if(!p.bot)return null;
+  if(!S.acted){const c=p.hand.find((h)=>C(h).k==='E');return c!=null?{pid:S.turn,act:{t:'play',c,to:S.turn}}:{pid:S.turn,act:{t:'redraw'}};}
+  return {pid:S.turn,act:{t:'end'}};
+}
+function tutSync(){
+  while(tut&&tut.i<TUT_STEPS.length-1){const st=TUT_STEPS[tut.i];if(st.ok&&st.ok())tut.i++;else break;}
+  if(tut&&TUT_STEPS[tut.i].done)store.set('ew-tut','1');
+}
+function tutGate(a,cid){
+  if(['rules','gallery','pile','detail','close','leave','tutnext','tutpractice','guide','hideover'].includes(a))return true;
+  const st=TUT_STEPS[tut.i];
+  if(st.done)return true;
+  if(st.info||st.wait){toast(st.info?'先讀完提示，再按「下一步」':'請稍候，對手還在行動');return false;}
+  if(['ans','pok'].includes(a))return true;
+  if(a==='psel'&&st.allow)return st.allow(a,cid)||!!S.prompt&&S.prompt.pid===0&&TUT_STEPS[tut.i].title.indexOf('功能卡')>=0;
+  if(st.allow&&st.allow(a,cid))return true;
+  toast('先照教學提示操作：'+st.title);return false;
+}
+function tutHTML(){
+  if(!tut||mode!=='game'||!S)return '';
+  const st=TUT_STEPS[tut.i],n=TUT_STEPS.length-1;
+  if(st.done)return `<div class="shade mid"><div class="sheet"><h2>教學完成！</h2><p style="margin:0">你剛剛學會了：打出裝備、結束回合、角色技能（會揭露身分）、功能卡、與市集交換，以及個人勝利。</p><p class="dim small" style="margin:0">真正的牌局還有更多變化：<b>橫放</b>保護裝備、<b>決鬥</b>搶裝備、【無效】反制、<b>轉生</b>與事件，以及和同陣營夥伴一起達成<b>陣營勝利</b>。這些都寫在「規則」裡。</p><div class="row"><button class="btn pri" data-a="tutpractice">開始單機練習</button><button class="btn" data-a="rules">閱讀完整規則</button><button class="btn" data-a="leave">回首頁</button></div></div></div>`;
+  const nextIsLast=TUT_STEPS[tut.i+1]&&TUT_STEPS[tut.i+1].info?'下一步':'開始操作';
+  return `<div id="coach" class="coach"><div class="row" style="justify-content:space-between;gap:8px"><b>教學 ${tut.i+1}／${n}　${st.title}</b><span class="row" style="gap:6px"><button class="btn sm" data-a="rules">規則</button><button class="btn sm" data-a="leave">離開教學</button></span></div><p>${st.txt}</p>${st.info?`<div class="row"><button class="btn pri sm" data-a="tutnext">${nextIsLast}</button></div>`:''}</div>`;
+}
+function tutHL(){
+  document.body.classList.toggle('tutor',!!(tut&&mode==='game'));
+  const c=document.getElementById('coach');document.body.style.paddingTop=c?c.offsetHeight+'px':'';
+  if(!tut||mode!=='game')return;
+  const st=TUT_STEPS[tut.i];if(!st||!st.hl)return;
+  let first=null;
+  st.hl.map((x)=>x.replace('"VR"','"'+TUTC.vr+'"')).forEach((sel)=>document.querySelectorAll(sel).forEach((e)=>{e.classList.add('tut-hl');if(!first)first=e;}));
+  if(first&&tut.seen!==tut.i){tut.seen=tut.i;try{first.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){}}
 }
 
 // ---------- 畫面 ----------
@@ -348,6 +495,7 @@ function homeHTML(){
   const on=capReady&&db;
   return `<div class="wrap"><div class="hero"><h1>末日三族</h1><p>創世神宣告毀滅世界，只留下最後資源爭奪戰的勝利者。魔王軍、勇者團、村民會三大族群，4–6 人連線對戰。</p></div>
   <div class="panel"><label for="nm">你的暱稱<input type="text" id="nm" maxlength="12" value="${esc(myName)}" placeholder="最多 12 個字"></label></div>
+  <div class="panel"><h2>新手教學${store.get('ew-tut')==='1'?'':' <span class="hint">第一次玩建議先看</span>'}</h2><p class="dim small" style="margin:0 0 8px">跟著提示親手完成一次個人勝利，約 3 分鐘，不需連線。</p><button class="btn pri" data-a="tutorial">開始教學</button></div>
   <div class="panel"><h2>連線對戰</h2>
     ${!capReady?'<p class="dim small">連線功能準備中…</p>':on?(canWrite===false?'<p class="hint">你目前對這個頁面只有檢視權限，無法建立或加入房間。請頁面擁有者把你的分享權限調整為可參與／可編輯。</p>':''):`<p class="hint">${esc(netErr||'這個畫面無法使用連線功能。')}仍可在下方單機練習。</p>`}
     <div class="row"><button class="btn pri" data-a="create" ${on&&!ui.busy?'':'disabled'}>建立房間</button>
@@ -367,7 +515,7 @@ function lobbyHTML(){
   const opts=[];for(let n=lo;n<=hi;n++)opts.push(n);if(!opts.includes(cur))opts.push(cur);
   return `<div class="wrap"><div class="hero"><p class="dim small">房號</p><div class="code">${net.code}</div><p>把房號告訴朋友，請他們開啟同一個網址後輸入加入；也可以直接傳邀請連結。${esc(ui.loadNote)}</p>${NET==='firebase'?`<div class="row"><input type="text" id="invite" readonly value="${esc(inviteURL())}" style="flex:1;min-width:0"><button class="btn" data-a="copyinv">複製邀請連結</button></div>`:''}</div>
   <div class="panel"><h2>玩家（${total}／6）</h2>
-    ${net.seats.map((x)=>`<div class="seat"><span>${esc(x.name)}${x.id===uid?' <span class="dim">（你）</span>':''}</span><span class="dim small">${x.id===d.host?'房主':''}</span></div>`).join('')}
+    ${net.seats.map((x)=>`<div class="seat"><span>${esc(x.name)}${x.id===uid?' <span class="dim">（你）</span>':''}</span><span class="dim small">${x.id===d.host?'房主':''}${online(x.id)?'':' <span class="off">離線</span>'}</span></div>`).join('')}
     ${Array.from({length:d.bots||0},(_,i)=>`<div class="seat"><span>${BOTN[i]}</span><span class="dim small">電腦</span></div>`).join('')}
     ${!seated?'<p class="hint">你尚未入座。<button class="btn sm" data-a="sit">入座</button></p>':''}
   </div>
@@ -385,7 +533,7 @@ function gameHTML(){
   NEED=mine?((cid)=>{const c=C(cid),r=mine.role.n;return c.k==='E'&&(r==='史萊姆'?c.type==='他':c.role===r||ROLES[r].win.includes(c.name));}):(()=>false);
   const a=actor(),order=[];for(let i=1;i<=S.players.length;i++){const k=((me<0?-1:me)+i)%S.players.length;if(k!==me)order.push(k);}
   const opps=order.map((i)=>{const p=S.players[i];
-    return `<div class="opp${S.turn===i&&!over?' turn':''}"><div class="row" style="justify-content:space-between;gap:6px"><span class="nm">${esc(p.name)}${p.bot?' <span class="dim small">電腦</span>':''}</span><span class="pill" title="手牌張數">手牌 ${p.hand.length}</span></div>
+    return `<div class="opp${S.turn===i&&!over?' turn':''}"><div class="row" style="justify-content:space-between;gap:6px"><span class="nm">${esc(p.name)}${p.bot?' <span class="dim small">電腦</span>':!local&&net&&!online(p.id)?' <span class="off small">離線</span>':''}</span><span class="pill" title="手牌張數">手牌 ${p.hand.length}</span></div>
     <div class="chips">${p.role.rev||over?roleCardHTML(p.role.n,{mini:true}):backHTML()}<span class="small">${roleLine(p,p.role.rev||over)}${S.turn===i&&!over?'<br><span class="hint">回合中</span>':''}</span></div>
     <div class="chips">${p.front.map(chipHTML).join('')||'<span class="dim small">面前沒有裝備</span>'}</div>
     ${!local&&isHost()&&!over&&p.id.indexOf('bot')!==0?`<div><button class="btn sm" data-a="tobot" data-p="${i}">${p.bot?'交還給玩家':'交給電腦代打'}</button></div>`:''}</div>`;}).join('');
@@ -395,11 +543,13 @@ function gameHTML(){
     <div class="piles"><div class="pile">資源牌庫<b>${S.deck.length}</b></div><div class="pile" data-a="pile" title="點此查看整個棄牌堆">棄牌堆<b>${S.discard.length}</b>${top}</div>
     <div class="pile">事件牌庫<b>${S.evDeck.length}</b>${S.lastEvent?'<span class="dim small">上一張</span>'+eventCardHTML(S.lastEvent,{mini:true}):''}</div><div class="pile">角色牌庫<b>${S.roleDeck.length}</b></div></div></div>
     <div class="zone"><h3>紀錄</h3><div class="log" id="log">${S.log.map((l)=>`<div>${esc(l)}</div>`).join('')}</div></div>`;
-  let wait='';
+  let wait='';const offActor=!local&&net&&!over&&!S.players[a].bot&&!online(S.players[a].id);
   if(!over){
     if(S.prompt&&S.prompt.pid!==me)wait=`等待 ${esc(S.players[S.prompt.pid].name)} 回應…`;
     else if(!S.prompt&&!myTurn)wait=`${esc(S.players[S.turn].name)} 的回合…`;
+    if(wait&&offActor)wait+=`（對方目前離線，可等他回來；房主也能按該玩家的「交給電腦代打」先繼續）`;
   }
+  const claim=(!local&&net&&me<0)?`<div class="wait">你目前不在這場牌局的座位上。若你是中途斷線或換了裝置，可接手一位離線玩家的座位：${S.players.map((p,i)=>p.bot?'':`<button class="btn sm" data-a="claim" data-p="${i}" ${online(p.id)?'disabled':''}>${esc(p.name)}${online(p.id)?'（線上）':'（離線）'}</button>`).join(' ')}</div>`:'';
   let meHTML='';
   if(mine){
     const R=ROLES[mine.role.n],k=FAC[R.f].key,solo=G.soloCheck(mine),fp=G.facProgress(S,mine);
@@ -425,7 +575,7 @@ function gameHTML(){
   return `<header class="bar"><h1>末日三族</h1>${net?`<span class="pill">房號 ${net.code}</span>`:'<span class="pill">單機練習</span>'}<span class="pill">第 ${S.round} 手</span>
     <span class="pill${myTurn?' on':''}">${over?'遊戲結束':myTurn?'你的回合':'輪到 '+esc(S.players[S.turn].name)}</span><span class="sp"></span>
     <button class="btn sm" data-a="guide" aria-pressed="${ui.guide}">指引：${ui.guide?'開':'關'}</button><button class="btn sm" data-a="rules">規則</button><button class="btn sm" data-a="leave">離開</button></header>
-    <section class="opps">${opps}</section>${wait?`<div class="wait">${wait}${a!==me&&ui.loadNote?esc(ui.loadNote):''}</div>`:''}${guideHTML(me,mine,myTurn,idle)}<section class="center">${center}</section>${meHTML}`;
+    <section class="opps">${opps}</section>${claim}${wait?`<div class="wait">${wait}${a!==me&&ui.loadNote?esc(ui.loadNote):''}</div>`:''}${guideHTML(me,mine,myTurn,idle)}<section class="center">${center}</section>${meHTML}`;
 }
 const PTIP={
   null:'打出【無效】會讓對方這次的效果直接失效。你的【無效】進棄牌堆，要等你自己的回合結束才補牌。',
@@ -452,7 +602,7 @@ const PTIP={
   viewHand:'只有你看得到結果。',viewRole:'只有你看得到結果。',archer:'你們兩人的整副手牌會互換。',
 };
 function guideHTML(me,mine,myTurn,idle){
-  if(!ui.guide||!mine||S.phase!=='play')return '';
+  if(tut||!ui.guide||!mine||S.phase!=='play')return '';
   const R=ROLES[mine.role.n],names=(a)=>a.map((c)=>'【'+C(c).name+'】').join('');
   const needHand=mine.hand.filter((c)=>NEED(c)),needMkt=S.market.filter((c)=>NEED(c));
   const hasNull=mine.hand.some((c)=>C(c).fn==='nullify'),skillOK=G.canSkill(S,me);
@@ -502,7 +652,7 @@ function promptHTML(){
   return `<div class="shade"><div class="sheet" role="dialog" aria-label="需要你回應"><h2>${esc(p.title)}</h2>${body}</div></div>`;
 }
 function overHTML(){
-  if(!S||S.phase!=='over'||ui.hideOver)return '';
+  if(!S||S.phase!=='over'||ui.hideOver||tut)return '';
   const w=S.winners;
   return `<div class="shade mid"><div class="sheet"><h2>${w.type==='solo'?'個人勝利':'陣營勝利：'+FAC[w.fac].nation}</h2>
     <p style="margin:0">${w.ids.map((i)=>esc(S.players[i].name)+'（'+S.players[i].role.n+'）').join('、')} 獲勝！</p>
@@ -603,7 +753,7 @@ function rulesHTML(){
   <li>【無效】是最好的防守，手上留一張可以讓你的關鍵回合不被破壞。</li>
   <li>戰鬥指數高的角色適合主動決鬥；指數低的角色，要靠技能與【無效】補強。</li>
   <li>面前裝備滿 5 張時，記得先清掉用不到的牌，再接收新的裝備。</li></ul>
-  <h3>連線版的補充裁定</h3><ul><li>「上家／下家」取代左右：下家是回合順序的下一位。</li><li>角色技能每次轉生只能用一次。</li><li>【無效】只詢問手上有這張牌的玩家，不能再被無效。</li><li>資源、角色資訊都存在共用的房間資料裡，畫面只顯示你該看到的部分；這是朋友間的遊戲，沒有防作弊機制。</li></ul></div></div>`;
+  <h3>連線版的補充裁定</h3><ul><li>「上家／下家」取代左右：下家是回合順序的下一位。</li><li>角色技能每次轉生只能用一次。</li><li>【無效】只詢問手上有這張牌的玩家，不能再被無效。</li><li><b>斷線重連</b>：牌局狀態存在房間資料裡。重新開啟同一個網頁會自動回到原房間與原座位；換了裝置或清除瀏覽器資料時，可在牌桌畫面上「接手」一位離線玩家的座位。</li><li><b>房主離線</b>：房主約 40 秒沒有回應時，由最早入座且在線的真人自動接手房主（負責電腦玩家出牌、開始遊戲）。對方離線的玩家旁會標示「離線」，房主可以先按「交給電腦代打」讓遊戲繼續。</li><li>資源、角色資訊都存在共用的房間資料裡，畫面只顯示你該看到的部分；這是朋友間的遊戲，沒有防作弊機制。</li></ul></div></div>`;
 }
 function render(){
   maybeIntro();
@@ -611,9 +761,11 @@ function render(){
   if(mode==='home')h=homeHTML();else if(mode==='lobby'||!S)h=net?lobbyHTML():homeHTML();else h=gameHTML()+promptHTML()+overHTML();
   const ae=document.activeElement,keep=ae&&ae.id&&(ae.tagName==='INPUT')?{id:ae.id,v:ae.value,s:ae.selectionStart}:null;
   const hand=document.querySelector('.hand'),hs=hand?hand.scrollLeft:0;
-  app.innerHTML=h+detailHTML()+rulesHTML();
+  if(tut&&mode==='game'&&S)tutSync();
+  app.innerHTML=h+detailHTML()+rulesHTML()+tutHTML();
   if(keep){const el=document.getElementById(keep.id);if(el){el.value=keep.v;el.focus();try{el.setSelectionRange(keep.s,keep.s)}catch(e){}}}
   const lg=$('#log');if(lg)lg.scrollTop=lg.scrollHeight;const h2=document.querySelector('.hand');if(h2)h2.scrollLeft=hs;
+  tutHL();
   tick();
 }
 
@@ -626,6 +778,7 @@ document.addEventListener('change',(e)=>{const t=e.target;
 document.addEventListener('click',(e)=>{
   const el=e.target.closest('[data-a]');if(!el)return;
   const a=el.dataset.a,me=myPid(),cid=el.dataset.c!=null?+el.dataset.c:null;
+  if(tut&&!tutGate(a,cid))return;
   if(a==='close'){if(el.classList.contains('shade')&&e.target!==el)return;if(ui.detail&&(ui.gallery||ui.pile)){ui.detail=null;return render();}ui.detail=null;ui.rules=false;ui.pile=false;ui.gallery=false;return render();}
   switch(a){
     case 'rules':ui.rules=true;break;
@@ -635,14 +788,22 @@ document.addEventListener('click',(e)=>{
     case 'pile':ui.pile=true;break;
     case 'create':createRoom();return;
     case 'join':joinRoom();return;
-    case 'local':startLocal();return;
+    case 'local':tut=null;startLocal();return;
+    case 'tutorial':startTutorial();return;
+    case 'tutnext':tut.i++;break;
+    case 'tutpractice':tut=null;ui.hideOver=false;startLocal();return;
     case 'leave':leave();return;
-    case 'sit':if(needName())seatRef().set({name:myName,t:Date.now()}).catch(()=>toast('入座失敗：沒有寫入權限'));return;
+    case 'sit':if(needName())mySeat().catch(()=>toast('入座失敗：沒有寫入權限'));return;
     case 'start':startOnline();return;
     case 'copyinv':try{navigator.clipboard.writeText(inviteURL()).then(()=>toast('已複製邀請連結'),()=>toast('複製失敗，請手動選取連結'));}catch(e){toast('複製失敗，請手動選取連結');}return;
     case 'tolobby':S=null;mode='lobby';ui.hideOver=false;setDoc({phase:'lobby',s:''});return;
-    case 'again':ui.hideOver=false;startLocal();return;
+    case 'again':ui.hideOver=false;tut=null;startLocal();return;
     case 'hideover':ui.hideOver=true;break;
+    case 'claim':{if(!net||!S)return;const i=+el.dataset.p,old=S.players[i].id,nmx=S.players[i].name;if(online(old))return toast('這位玩家目前在線上');
+      commit((c)=>{c.players[i].id=uid;return null;},true);
+      if(net.doc.host===old)setDoc({host:uid});
+      net.mySeatT=0;try{db.doc('games/'+net.code+'/seats/'+old).delete().catch(()=>{});}catch(er){}
+      sendPresence();toast('已接手「'+nmx+'」的座位');return;}
     case 'tobot':commit((c)=>{const p=c.players[+el.dataset.p];p.bot=!p.bot;return null;},true);return;
     case 'sel':ui.sel=ui.sel===cid?null:cid;ui.give=false;break;
     case 'giveon':ui.give=true;break;
@@ -724,7 +885,9 @@ async function bootFirebase(){
     }
   }catch(e){db=null;if(!netErr)netErr='連不上連線伺服器，請檢查網路後重新整理頁面。';}
   if(db&&!uid){uid=store.get('ew-uid');if(!uid){uid='x'+Math.random().toString(36).slice(2,12);store.set('ew-uid',uid);}}
-  capReady=true;render();
+  capReady=true;
+  if(db&&uid){const sc=store.get('ew-room');if(sc&&/^[A-Z]{4}$/.test(sc)&&(!ui.codeIn||ui.codeIn===sc)){await autoRejoin(sc);return;}}
+  render();
 })();
 })();
 </script>
