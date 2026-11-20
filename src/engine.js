@@ -2,9 +2,9 @@
 var G = (function () {
   'use strict';
   const FAC = {
-    村民: { nation: '公國', tag: '其他', key: 'g' },
-    魔王: { nation: '帝國', tag: '攻', key: 'r' },
-    勇者: { nation: '共和國', tag: '守', key: 'b' },
+    村民: { nation: '村民會', tag: '其他', key: 'g' },
+    魔王: { nation: '魔王軍', tag: '攻', key: 'r' },
+    勇者: { nation: '勇者團', tag: '守', key: 'b' },
   };
   const ROLES = {
     農夫: { f: '村民', pw: 2, sk: '種瓜得瓜', d: '將場面上任 1 張裝備移至自己面前（面前多於 5 張須棄牌）', win: ['蘋果', '烤蜥蜴串'] },
