@@ -176,7 +176,8 @@ var G = (function () {
 
   // 末日倒數：人數越多，輪數越少（總回合數相近）
   const DOOM_END = { 4: 14, 5: 12, 6: 10 };
-  function doomCfg(n, d) { const end = (d && d.end) || DOOM_END[n] || 12; return { from: (d && d.from) || end - 5, end }; }
+  function doomCfg(n, d) { d = typeof d === 'object' ? d : {}; return { from: d.from || 9, end: d.end || 0, sec: d.sec || 20 }; }
+  function timed(s) { const D = s.opts.doom; return !!D && s.phase === 'play' && (s.cycle || 1) >= D.from; }
   // 末日倒數：最後一輪結束時比較個人勝利進度
   function doomScore(p) {
     const r = p.role.n, R = ROLES[r], fc = frontCards(p), g = facProgress({ opts: { facN: 2 } }, p);
@@ -586,6 +587,13 @@ var G = (function () {
     if (s.prompt || s.q.length) return '請等待目前的效果結算';
     if (s.turn !== pid) return '還沒輪到你';
     const p = s.players[pid];
+    if (a.t === 'timeout') {
+      if (!timed(s)) return '目前沒有計時';
+      if (!s.acted) log(s, `⏱ 時間到：${p.name} 沒有行動，跳過回合。`);
+      else log(s, `⏱ 時間到：${p.name} 的回合強制結束。`);
+      s.acted = true; const r = act(s, pid, { t: 'end' });
+      return r;
+    }
     if (a.t === 'end') {
       if (!s.acted) return '請先執行一個動作';
       if (p.hand.length < 5) drawTo(s, pid, 5 - p.hand.length);
@@ -594,13 +602,10 @@ var G = (function () {
       const D = s.opts.doom;
       if (s.turn === s.first) {
         s.cycle = (s.cycle || 1) + 1;
-        if (D && s.cycle > D.end) { doomEnd(s); return null; }
+        if (D && D.end && s.cycle > D.end) { doomEnd(s); return null; }
       }
       log(s, `— 輪到 ${nm(s, s.turn)} —`);
-      if (D && s.turn === s.first && s.cycle >= D.from) {
-        log(s, `☄ 末日將至（第 ${s.cycle}／${D.end} 輪）：強制觸發一張事件。`);
-        s.q.push({ op: 'event', pid: s.turn });
-      }
+      if (D && s.turn === s.first && s.cycle === D.from) log(s, `☄ 末日將至（第 ${s.cycle} 輪）：從現在起每位玩家只有 ${D.sec} 秒思考時間，時間到強制換下一位。`);
       return run(s), null;
     }
     if (a.t === 'skill') {
@@ -657,6 +662,11 @@ var G = (function () {
 
   // ---------- 電腦玩家 ----------
   function useful(s, pid, cid) { const c = C(cid); if (c.k !== 'E') return false; const r = s.players[pid].role.n; return r === '史萊姆' || c.role === r || ROLES[r].win.includes(c.name); }
+  function autoAnswer(s) { // 計時到時替真人代答：【無效】一律不打，其餘照電腦邏輯
+    const pr = s.prompt; if (!pr) return null;
+    if (pr.kind === 'choice' && pr.k === 'null') return { pid: pr.pid, ans: 'n' };
+    return bot(s);
+  }
   function bot(s) {
     if (s.phase !== 'play') return null;
     const pr = s.prompt;
@@ -694,6 +704,6 @@ var G = (function () {
     return { pid, act: { t: 'reinc' } };
   }
 
-  return { FAC, ROLES, CARDS, EV, EVENTS, MAG, TYPE, C, newGame, act, respond, bot, canSkill, canRedraw, soloCheck, facProgress, skillSpec };
+  return { FAC, ROLES, CARDS, EV, EVENTS, MAG, TYPE, C, newGame, act, respond, bot, canSkill, canRedraw, timed, autoAnswer, soloCheck, facProgress, skillSpec };
 })();
 if (typeof module !== 'undefined') module.exports = G;

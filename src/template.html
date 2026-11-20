@@ -120,6 +120,8 @@ label{font-size:13px;color:var(--dim);display:flex;flex-direction:column;gap:4px
 .rules li{margin:3px 0}
 .rules ul,.rules ol{margin:2px 0 4px;padding-left:1.4em}
 .off{color:#e0642a;font-weight:600}
+.tmr{background:#3a1d12;border-color:#e0642a;color:#ffd0b8;font-variant-numeric:tabular-nums}
+.tmr.urgent{background:#b8321a;color:#fff;animation:tutp .8s infinite}
 .doomp{background:#7a2a1a;border-color:#e0642a;color:#ffd0b8}
 .seatTag{font-size:11px;padding:1px 7px;border-radius:10px;background:#e3a33b33;color:#ffd48a;border:1px solid #e3a33b88;margin-left:4px}
 .seatline{margin:0 0 8px;padding:0 16px;opacity:.9;line-height:1.7}
@@ -397,6 +399,25 @@ function tick(){
     if(!commit((c)=>m.act?G.act(c,m.pid,m.act):G.respond(c,m.pid,m.ans),true))tick();},S.prompt&&S.prompt.kind==='view'?250:850);
 }
 
+// ---------- 末日倒數：思考計時 ----------
+let tmKey='',tmAt=0;
+function tmState(){
+  if(!S||S.phase!=='play'||tut||!G.timed(S))return null;
+  const a=actor(),p=S.players[a];if(p.bot)return null;
+  const k=[S.round,S.acted?1:0,S.prompt?S.prompt.pid+':'+S.prompt.k+':'+(S.prompt.title||''):'',S.q.length].join('|');
+  if(k!==tmKey){tmKey=k;tmAt=Date.now();}
+  const sec=S.opts.doom.sec||15;return {a,left:Math.max(0,sec-(Date.now()-tmAt)/1000),sec};
+}
+function tmTick(){
+  const t=tmState(),el=document.getElementById('tmr');
+  if(el){if(!t){el.style.display='none';}else{el.style.display='';const n=Math.ceil(t.left);el.textContent='⏱ '+(t.a===myPid()?'你':S.players[t.a].name)+' 剩 '+n+' 秒';el.classList.toggle('urgent',n<=5);}}
+  if(!t||t.left>0||introOn||!isHost())return;
+  tmKey='';// 避免重複送出
+  if(S.prompt){const m=G.autoAnswer(S);if(m)commit((c)=>G.respond(c,m.pid,m.ans),true);}
+  else if(!S.q.length)commit((c)=>G.act(c,S.turn,{t:'timeout'}),true);
+}
+setInterval(tmTick,250);
+
 // ---------- 新手互動式教學 ----------
 const TUT_STEPS=[
   {title:'歡迎來到末日',info:true,txt:'創世神宣告毀滅世界，只留下最後資源爭奪戰的勝利者。你是<b>村民會</b>的<b>農夫</b>。這堂課會帶你親手完成一次「個人勝利」，約 3 分鐘，不用連線。'},
@@ -541,7 +562,7 @@ function lobbyHTML(){
   <div class="panel"><h2>設定${host?'':'（由房主決定）'}</h2><div class="row">
     <label for="ob">電腦玩家<select id="ob" ${host?'':'disabled'}>${opts.map((n)=>`<option value="${n}" ${n===cur?'selected':''}>${n} 位</option>`).join('')}</select></label>
     <span class="hint">目前 ${humans} 位真人，電腦可選 ${lo}${hi>lo?'–'+hi:''} 位（真人＋電腦需 4–6 人）。</span>
-  </div><div class="row" style="margin-top:8px"><label><input type="checkbox" id="odoom" ${d.doom?'checked':''} ${host?'':'disabled'}> 末日倒數</label><span class="hint">限制遊戲長度（4 人 14 輪／5 人 12 輪／6 人 10 輪；最後 5 輪每輪開始強制觸發事件，輪數用完時由個人勝利條件完成最多者勝出）</span></div></div>
+  </div><div class="row" style="margin-top:8px"><label><input type="checkbox" id="odoom" ${d.doom?'checked':''} ${host?'':'disabled'}> 末日倒數</label><span class="hint">限制遊戲長度（前 8 輪不限時；第 9 輪起每位玩家只有 20 秒思考時間，時間到強制換下一位；沒有輪數上限）</span></div></div>
   <div class="row">${host?`<button class="btn pri" data-a="start" ${total>=4&&total<=6?'':'disabled'}>開始遊戲</button>`:'<span class="dim">等待房主開始…</span>'}
     <button class="btn" data-a="rules">遊戲規則</button><button class="btn" data-a="leave">離開房間</button>
     ${total<4?'<span class="hint">至少需要 4 位玩家，可用電腦玩家補滿。</span>':''}${total>6?'<span class="hint">最多 6 位玩家。</span>':''}</div></div>`;
@@ -593,7 +614,7 @@ function gameHTML(){
       <h3>手牌（${mine.hand.length}）</h3><div class="cards hand">${mine.hand.map((c)=>cardHTML(c,{act:'sel',sel:ui.sel===c})).join('')}</div>
       <div class="acts">${acts}</div></div></section>`;
   }else meHTML='<section class="me"><div class="dim">你正在觀戰。</div></section>';
-  return `<header class="bar"><h1>末日三族</h1>${net?`<span class="pill">房號 ${net.code}</span>`:'<span class="pill">單機練習</span>'}<span class="pill">第 ${S.round} 手</span>${S.opts&&S.opts.doom&&S.phase==='play'?`<span class="pill${S.cycle>=S.opts.doom.from?' doomp':''}" title="末日倒數：第 ${S.opts.doom.end} 輪結束時末日降臨">☄ 第 ${S.cycle}／${S.opts.doom.end} 輪</span>`:''}
+  return `<header class="bar"><h1>末日三族</h1>${net?`<span class="pill">房號 ${net.code}</span>`:'<span class="pill">單機練習</span>'}<span class="pill">第 ${S.round} 手</span>${S.opts&&S.opts.doom&&S.phase==='play'?`<span class="pill${S.cycle>=S.opts.doom.from?' doomp':''}" title="末日倒數：第 ${S.opts.doom.from} 輪起每人只有 ${S.opts.doom.sec} 秒思考">☄ 第 ${S.cycle} 輪${S.cycle<S.opts.doom.from?'（第 '+S.opts.doom.from+' 輪起計時）':''}</span><span id="tmr" class="pill tmr" style="display:none"></span>`:''}
     <span class="pill${myTurn?' on':''}">${over?'遊戲結束':myTurn?'你的回合':'輪到 '+esc(S.players[S.turn].name)}</span><span class="sp"></span>
     <button class="btn sm" data-a="guide" aria-pressed="${ui.guide}">指引：${ui.guide?'開':'關'}</button><button class="btn sm" data-a="rules">規則</button><button class="btn sm" data-a="leave">離開</button></header>
     ${seatLine}<section class="opps">${opps}</section>${claim}${wait?`<div class="wait">${wait}${a!==me&&ui.loadNote?esc(ui.loadNote):''}</div>`:''}${guideHTML(me,mine,myTurn,idle)}<section class="center">${center}</section>${meHTML}`;
@@ -753,10 +774,11 @@ function rulesHTML(){
   <li><b>個人勝利</b>：你面前同時擁有角色卡上指定的裝備。大多數角色是「任 1 個自己角色的裝備＋2 張指定裝備」；村長是「任 2 個村長裝備＋村長家的地契」；幼童是「任 2 個幼童裝備＋魔女玩偶」；史萊姆是「任 4 個其他類裝備」。畫面左下會顯示你目前的進度。</li>
   <li><b>陣營勝利</b>：同一陣營至少 <b>2 位</b>玩家，而且<b>每個人</b>面前都有「自己角色的專屬裝備 2 張」。史萊姆沒有專屬裝備，需湊齊其他類裝備 3 張。</li>
   <li><b>判定時機</b>：每個動作（包含連鎖的技能、事件與【無效】）全部結算完才判定。如果同時有數人達成，從當前回合玩家開始依座位順序判定，<b>個人勝利優先於陣營勝利</b>。</li></ul>
-  <h3>可選規則：末日倒數</h3><p>想控制遊戲長度時，房主可以在大廳勾選「末日倒數」（單機練習也可以）。</p><ul>
-  <li>遊戲有輪數上限：4 人 14 輪、5 人 12 輪、6 人 10 輪（全桌每人輪到一次為一輪，畫面上方會顯示「☄ 第 N／上限 輪」）。</li>
-  <li>最後 5 輪的每一輪開始時，由先手玩家強制觸發一張事件（末日將至）。</li>
-  <li>最後一輪結束仍無人獲勝時，末日降臨：比較每個人的個人勝利條件完成度（專屬裝備依張數算部分完成；史萊姆依其他類裝備張數），最高者獲勝；同分再比陣營條件進度、面前裝備張數，仍同分則共同倖存。</li></ul>
+  <h3>可選規則：末日倒數</h3><p>想加快節奏時，房主可以在大廳勾選「末日倒數」（單機練習也可以）。全桌每人輪到一次為一輪，從先手玩家開始計算。</p><ul>
+  <li>前 8 輪正常進行，不限時。</li>
+  <li>從第 9 輪起（末日將至），每位玩家每次需要做決定時只有 <b>20 秒</b>，畫面上方會顯示倒數。</li>
+  <li>時間到還沒結束回合，就<b>強制換下一位</b>：沒做動作就直接跳過；已做了動作則自動結束回合（照常補牌）。需要你回應的選擇（選目標、選牌等）時間到時由系統代選，【無效】視為不打出。</li>
+  <li>沒有輪數上限，仍須有人達成勝利條件才會結束。</li></ul>
   <h3>角色一覽</h3><ul>${rl}</ul>
   <h3>範例回合</h3>
   <p>小美是<b class="tag-r">魔王軍</b>的吸血鬼，戰鬥指數 3；阿凱是<b class="tag-b">勇者團</b>的劍士，戰鬥指數 2，面前有 2 張未橫放的裝備。輪到小美：</p>
@@ -792,6 +814,7 @@ function render(){
   if(keep){const el=document.getElementById(keep.id);if(el){el.value=keep.v;el.focus();try{el.setSelectionRange(keep.s,keep.s)}catch(e){}}}
   const lg=$('#log');if(lg)lg.scrollTop=lg.scrollHeight;const h2=document.querySelector('.hand');if(h2)h2.scrollLeft=hs;
   tutHL();
+  tmTick();
   tick();
 }
 
