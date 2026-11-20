@@ -1047,7 +1047,9 @@ function subscribe(code){
     if(d.v===V&&net.doc&&(d.s||'')===lastS&&d.phase===net.doc.phase&&d.bots===net.doc.bots)return;
     const prevHost=net.doc&&net.doc.host;
     net.doc=Object.assign({},d);V=d.v;lastS=d.s||'';
+    const wasOver=!!(S&&S.phase==='over');
     if(d.phase==='play'&&d.s){try{S=JSON.parse(d.s);mode='game';}catch(e){S=null;mode='lobby';}}else{S=null;mode='lobby';}
+    if(wasOver&&S&&S.phase==='play')introKey=introKeyOf(S); // 再來一局不重播開場短片
     if(prevHost===uid&&d.host!==uid)toast('房主已改由其他玩家接手');
     if(!net.presInit){net.presInit=true;sendPresence();}
     render();
@@ -1126,8 +1128,21 @@ async function joinRoom(){
   ui.busy=false;render();
 }
 function needName(){myName=(myName||'').trim().slice(0,12);if(!myName){toast('請先輸入暱稱');return false;}store.set('ew-name',myName);return true;}
+async function deleteRoom(code){
+  try{
+    if(db.removeRoom){await db.removeRoom(code);return;}
+    await db.doc('games/'+code).delete();
+  }catch(e){}
+}
 function leave(silent){
-  if(net){clearInterval(net.hb);clearInterval(net.pw);clearInterval(net.pc);net.unsubs.forEach((u)=>{try{u()}catch(e){}});if(!silent&&db){try{seatRef().delete().catch(()=>{})}catch(e){}}}
+  if(net){
+    clearInterval(net.hb);clearInterval(net.pw);clearInterval(net.pc);net.unsubs.forEach((u)=>{try{u()}catch(e){}});
+    if(!silent&&db){
+      const empty=!net.seats.some((x)=>x.id!==uid&&online(x.id)); // 沒有其他在線玩家 → 最後一個離開的人把房間刪掉
+      try{seatRef().delete().catch(()=>{})}catch(e){}
+      if(empty)deleteRoom(net.code);
+    }
+  }
   store.set('ew-room','');tut=null;net=null;S=null;V=0;local=false;mode='home';clearTimeout(botT);botT=null;try{location.hash=''}catch(e){}render();
 }
 function botRange(h){return [Math.max(0,4-h),Math.max(0,6-h)];} // 真人＋電腦須為 4–6 人
@@ -1159,10 +1174,11 @@ function startIntro(){
   introT=setTimeout(endIntro,9800);
 }
 document.addEventListener('keydown',(e)=>{if(introOn&&(e.key==='Escape'||e.key==='Enter'||e.key===' '))endIntro();});
+function introKeyOf(x){return x.players.map((p)=>p.hand.join('.')).join('|');}
 function maybeIntro(){
   if(tut)return;
   if(mode!=='game'||!S||S.phase!=='play'||S.log.length>1||S.round>1)return;
-  const k=S.players.map((p)=>p.hand.join('.')).join('|');
+  const k=introKeyOf(S);
   if(k!==introKey){introKey=k;startIntro();}
 }
 function tick(){
@@ -1453,7 +1469,7 @@ function overHTML(){
   return `<div class="shade mid"><div class="sheet"><h2>${w.type==='solo'?'個人勝利':'陣營勝利：'+FAC[w.fac].nation}</h2>
     <p style="margin:0">${w.ids.map((i)=>esc(S.players[i].name)+'（'+S.players[i].role.n+'）').join('、')} 獲勝！</p>
     ${S.players.map((p,i)=>`<div class="seat"><span>${esc(p.name)}${w.ids.includes(i)?' ★':''}</span><span class="tag-${facKey(p.role.n)}">${p.role.n}・${FAC[ROLES[p.role.n].f].nation}</span></div>`).join('')}
-    <div class="row">${local?'<button class="btn pri" data-a="again">再來一局</button>':isHost()?'<button class="btn pri" data-a="tolobby">回到大廳</button>':'<span class="dim">等待房主回到大廳…</span>'}
+    <div class="row">${local?'<button class="btn pri" data-a="again">再來一局</button>':myPid()>=0?'<button class="btn pri" data-a="newgame">再來一局（同一批玩家）</button>'+(isHost()?'<button class="btn" data-a="tolobby">回到大廳</button>':''):''}
     <button class="btn" data-a="hideover">查看牌桌</button><button class="btn" data-a="leave">離開</button></div></div></div>`;
 }
 function detailHTML(){
@@ -1549,9 +1565,10 @@ function rulesHTML(){
   <li>【無效】是最好的防守，手上留一張可以讓你的關鍵回合不被破壞。</li>
   <li>戰鬥指數高的角色適合主動決鬥；指數低的角色，要靠技能與【無效】補強。</li>
   <li>面前裝備滿 5 張時，記得先清掉用不到的牌，再接收新的裝備。</li></ul>
-  <h3>連線版的補充裁定</h3><ul><li>「上家／下家」取代左右：下家是回合順序的下一位。</li><li>角色技能每次轉生只能用一次。</li><li>【無效】只詢問手上有這張牌的玩家，不能再被無效。</li><li><b>斷線重連</b>：牌局狀態存在房間資料裡。重新開啟同一個網頁會自動回到原房間與原座位；換了裝置或清除瀏覽器資料時，可在牌桌畫面上「接手」一位離線玩家的座位。</li><li><b>房主離線</b>：房主約 40 秒沒有回應時，由最早入座且在線的真人自動接手房主（負責電腦玩家出牌、開始遊戲）。對方離線的玩家旁會標示「離線」，房主可以先按「交給電腦代打」讓遊戲繼續。</li><li>資源、角色資訊都存在共用的房間資料裡，畫面只顯示你該看到的部分；這是朋友間的遊戲，沒有防作弊機制。</li></ul></div></div>`;
+  <h3>連線版的補充裁定</h3><ul><li>「上家／下家」取代左右：下家是回合順序的下一位。</li><li>角色技能每次轉生只能用一次。</li><li>【無效】只詢問手上有這張牌的玩家，不能再被無效。</li><li><b>斷線重連</b>：牌局狀態存在房間資料裡。重新開啟同一個網頁會自動回到原房間與原座位；換了裝置或清除瀏覽器資料時，可在牌桌畫面上「接手」一位離線玩家的座位。</li><li><b>結束與再來一局</b>：遊戲結束時，所有玩家的畫面都會跳出結果視窗。任何一位玩家按「再來一局」，就會用同一批玩家（離線的玩家會被略過，不足 4 人由電腦補滿）直接開新的一局，不用離開房間；房主也可以選「回到大廳」重新調整人數。所有人都離開後，房間會自動刪除。</li><li><b>房主離線</b>：房主約 40 秒沒有回應時，由最早入座且在線的真人自動接手房主（負責電腦玩家出牌、開始遊戲）。對方離線的玩家旁會標示「離線」，房主可以先按「交給電腦代打」讓遊戲繼續。</li><li>資源、角色資訊都存在共用的房間資料裡，畫面只顯示你該看到的部分；這是朋友間的遊戲，沒有防作弊機制。</li></ul></div></div>`;
 }
 function render(){
+  if(S&&S.phase==='over'){const k=JSON.stringify(S.winners)+'|'+S.round+'|'+S.log.length;if(ui.overKey!==k){ui.overKey=k;ui.hideOver=false;}}else ui.overKey='';
   maybeIntro();
   const app=$('#app');let h;
   if(mode==='home')h=homeHTML();else if(mode==='lobby'||!S)h=net?lobbyHTML():homeHTML();else h=gameHTML()+promptHTML()+overHTML();
@@ -1594,6 +1611,15 @@ document.addEventListener('click',(e)=>{
     case 'copyinv':try{navigator.clipboard.writeText(inviteURL()).then(()=>toast('已複製邀請連結'),()=>toast('複製失敗，請手動選取連結'));}catch(e){toast('複製失敗，請手動選取連結');}return;
     case 'tolobby':S=null;mode='lobby';ui.hideOver=false;setDoc({phase:'lobby',s:''});return;
     case 'again':ui.hideOver=false;tut=null;startLocal();return;
+    case 'newgame':{
+      if(local||!net||!S||S.phase!=='over'||me<0)return;
+      const seats=[],dropped=[];
+      S.players.forEach((p)=>{if(p.bot)seats.push({id:p.id,name:p.name,bot:true});else if(online(p.id))seats.push({id:p.id,name:p.name});else dropped.push(p.name);});
+      for(let k=0;seats.length<4;k++){const id='bot'+k;if(!seats.some((x)=>x.id===id))seats.push({id,name:BOTN[k]||('電腦'+k),bot:true});}
+      S=G.newGame(seats);introKey=introKeyOf(S);ui.hideOver=false;ui.sel=null;ui.give=false;V++;
+      push({phase:'play',s:JSON.stringify(S)});mode='game';
+      if(dropped.length)toast('已略過離線玩家：'+dropped.join('、'));
+      render();return;}
     case 'hideover':ui.hideOver=true;break;
     case 'claim':{if(!net||!S)return;const i=+el.dataset.p,old=S.players[i].id,nmx=S.players[i].name;if(online(old))return toast('這位玩家目前在線上');
       commit((c)=>{c.players[i].id=uid;return null;},true);
@@ -1646,6 +1672,13 @@ function fbAdapter(fdb){
       onSnapshot(next,err){const cb=(s)=>next(snapOf(s));ref.on('value',cb,(e)=>err&&err({code:'unavailable',message:String(e)}));return ()=>ref.off('value',cb);}
     };},
     touch(code,ts){fdb.ref('idx/'+code).set(ts).catch(()=>{});},
+    async removeRoom(code){await fdb.ref('g/'+code).remove();await fdb.ref('idx/'+code).remove();},
+    async sweepEmpty(idleMs){ // 沒有任何人在座、且閒置一段時間的房間（例如大家直接關掉網頁）
+      const s=await fdb.ref('idx').orderByValue().endAt(Date.now()-idleMs).limitToFirst(50).get();const codes=[];
+      s.forEach((c)=>{codes.push(c.key);});let n=0;
+      for(const c of codes){const seats=await fdb.ref('g/'+c+'/seats').get();if(!seats.exists()){await fdb.ref('g/'+c).remove();await fdb.ref('idx/'+c).remove();n++;}}
+      return n;
+    },
     async sweep(cutoff){
       const s=await fdb.ref('idx').orderByValue().endAt(cutoff).limitToFirst(50).get();const codes=[];
       s.forEach((c)=>{codes.push(c.key);});
@@ -1668,6 +1701,7 @@ async function bootFirebase(){
   const fdb=firebase.database(app);
   db=fbAdapter(fdb);NET='firebase';
   db.sweep(Date.now()-ROOM_TTL).catch(()=>{}); // 進站時順手清掉過期房間
+  db.sweepEmpty(30*60*1000).catch(()=>{}); // 以及沒人在座、閒置超過 30 分鐘的房間
 }
 (async function boot(){
   const inClaude=!!(window.claude&&typeof window.claude.use==='function');
