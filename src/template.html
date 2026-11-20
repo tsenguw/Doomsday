@@ -120,6 +120,7 @@ label{font-size:13px;color:var(--dim);display:flex;flex-direction:column;gap:4px
 .rules li{margin:3px 0}
 .rules ul,.rules ol{margin:2px 0 4px;padding-left:1.4em}
 .off{color:#e0642a;font-weight:600}
+.doomp{background:#7a2a1a;border-color:#e0642a;color:#ffd0b8}
 .seatTag{font-size:11px;padding:1px 7px;border-radius:10px;background:#e3a33b33;color:#ffd48a;border:1px solid #e3a33b88;margin-left:4px}
 .seatline{margin:0 0 8px;padding:0 16px;opacity:.9;line-height:1.7}
 .coach{position:fixed;top:0;left:0;right:0;margin:0 auto;width:min(640px,100%);z-index:60;background:#1b2a36;border:2px solid var(--ember);border-top:0;border-radius:0 0 12px 12px;padding:8px 14px;box-shadow:0 6px 24px #000a;font-size:14px;line-height:1.6}
@@ -216,7 +217,7 @@ let tut=null;
 let mode='home',local=false,net=null,S=null,V=0,lastS='',chain=Promise.resolve(),botT=null,toastT=null;
 let myName=store.get('ew-name')||'';
 let NEED=()=>false;
-const ui={guide:store.get('ew-guide')!=='0',sel:null,give:false,psel:[],pkey:'',detail:null,rules:false,pile:false,practice:3,codeIn:'',busy:false,loadNote:''};
+const ui={guide:store.get('ew-guide')!=='0',sel:null,give:false,psel:[],pkey:'',detail:null,rules:false,pile:false,practice:3,doom:store.get('ew-doom')==='1',codeIn:'',busy:false,loadNote:''};
 try{const h=(location.hash||'').match(/^#room-(\d{4})$/);if(h)ui.codeIn=h[1];}catch(e){}
 
 function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{el.hidden=true},3600);}
@@ -252,7 +253,7 @@ function subscribe(code){
     if(!snap.metadata||!snap.metadata.fromCache){clearTimeout(lt);ui.loadNote='';}
     if(!snap.exists){if(!snap.metadata||!snap.metadata.fromCache){if(net&&net.doc){toast('房間已關閉');leave(true);}}return;}
     const d=snap.data();if(!net||typeof d.v!=='number'||d.v<V)return;
-    if(d.v===V&&net.doc&&(d.s||'')===lastS&&d.phase===net.doc.phase&&d.bots===net.doc.bots)return;
+    if(d.v===V&&net.doc&&(d.s||'')===lastS&&d.phase===net.doc.phase&&d.bots===net.doc.bots&&!!d.doom===!!net.doc.doom)return;
     const prevHost=net.doc&&net.doc.host;
     net.doc=Object.assign({},d);V=d.v;lastS=d.s||'';
     const wasOver=!!(S&&S.phase==='over');
@@ -358,11 +359,11 @@ function startOnline(){
   const d=net.doc,seats=net.seats.map((x)=>({id:x.id,name:String(x.name||'玩家').slice(0,12)}));
   for(let i=0;i<(d.bots||0);i++)seats.push({id:'bot'+i,name:BOTN[i],bot:true});
   if(seats.length<4||seats.length>6)return toast('需要 4–6 位玩家（可加入電腦玩家補滿）');
-  S=G.newGame(seats);V++;push({phase:'play',s:JSON.stringify(S)});mode='game';render();
+  S=G.newGame(seats,{doom:!!d.doom});V++;push({phase:'play',s:JSON.stringify(S)});mode='game';render();
 }
 function startLocal(){
   if(!needName())return;const seats=[{id:'me',name:myName}];for(let i=0;i<ui.practice;i++)seats.push({id:'bot'+i,name:BOTN[i],bot:true});
-  local=true;net=null;S=G.newGame(seats);V=1;mode='game';render();
+  local=true;net=null;S=G.newGame(seats,{doom:ui.doom});V=1;mode='game';render();
 }
 
 // ---------- 開場前導短片 ----------
@@ -520,7 +521,7 @@ function homeHTML(){
     <span class="dim">或</span><input type="text" id="code" inputmode="numeric" pattern="[0-9]*" maxlength="4" size="6" placeholder="4 位數房號" value="${esc(ui.codeIn)}" style="letter-spacing:.2em">
     <button class="btn" data-a="join" ${on&&!ui.busy?'':'disabled'}>加入房間</button></div>
     <p class="dim small">${NET==='claude'?'所有玩家都要開啟同一個頁面連結並登入；':'所有玩家開啟同一個網址即可，不用登入；'}房主建立房間後把 4 碼房號或邀請連結傳給朋友。</p></div>
-  <div class="panel"><h2>單機練習</h2><div class="row"><label for="pr">電腦對手<select id="pr">${[3,4,5].map((n)=>`<option value="${n}" ${n===ui.practice?'selected':''}>${n} 位</option>`).join('')}</select></label>
+  <div class="panel"><h2>單機練習</h2><div class="row"><label for="pr">電腦對手<select id="pr">${[3,4,5].map((n)=>`<option value="${n}" ${n===ui.practice?'selected':''}>${n} 位</option>`).join('')}</select></label><label><input type="checkbox" id="pdoom" ${ui.doom?'checked':''}> 末日倒數</label>
     <button class="btn" data-a="local">開始練習</button></div></div>
   <div class="row"><button class="btn" data-a="rules">遊戲規則</button><button class="btn" data-a="gallery">卡牌圖鑑</button></div></div>`;
 }
@@ -540,7 +541,7 @@ function lobbyHTML(){
   <div class="panel"><h2>設定${host?'':'（由房主決定）'}</h2><div class="row">
     <label for="ob">電腦玩家<select id="ob" ${host?'':'disabled'}>${opts.map((n)=>`<option value="${n}" ${n===cur?'selected':''}>${n} 位</option>`).join('')}</select></label>
     <span class="hint">目前 ${humans} 位真人，電腦可選 ${lo}${hi>lo?'–'+hi:''} 位（真人＋電腦需 4–6 人）。</span>
-  </div></div>
+  </div><div class="row" style="margin-top:8px"><label><input type="checkbox" id="odoom" ${d.doom?'checked':''} ${host?'':'disabled'}> 末日倒數</label><span class="hint">限制遊戲長度（4 人 14 輪／5 人 12 輪／6 人 10 輪；最後 5 輪每輪開始強制觸發事件，輪數用完時由個人勝利條件完成最多者勝出）</span></div></div>
   <div class="row">${host?`<button class="btn pri" data-a="start" ${total>=4&&total<=6?'':'disabled'}>開始遊戲</button>`:'<span class="dim">等待房主開始…</span>'}
     <button class="btn" data-a="rules">遊戲規則</button><button class="btn" data-a="leave">離開房間</button>
     ${total<4?'<span class="hint">至少需要 4 位玩家，可用電腦玩家補滿。</span>':''}${total>6?'<span class="hint">最多 6 位玩家。</span>':''}</div></div>`;
@@ -592,7 +593,7 @@ function gameHTML(){
       <h3>手牌（${mine.hand.length}）</h3><div class="cards hand">${mine.hand.map((c)=>cardHTML(c,{act:'sel',sel:ui.sel===c})).join('')}</div>
       <div class="acts">${acts}</div></div></section>`;
   }else meHTML='<section class="me"><div class="dim">你正在觀戰。</div></section>';
-  return `<header class="bar"><h1>末日三族</h1>${net?`<span class="pill">房號 ${net.code}</span>`:'<span class="pill">單機練習</span>'}<span class="pill">第 ${S.round} 手</span>
+  return `<header class="bar"><h1>末日三族</h1>${net?`<span class="pill">房號 ${net.code}</span>`:'<span class="pill">單機練習</span>'}<span class="pill">第 ${S.round} 手</span>${S.opts&&S.opts.doom&&S.phase==='play'?`<span class="pill${S.cycle>=S.opts.doom.from?' doomp':''}" title="末日倒數：第 ${S.opts.doom.end} 輪結束時末日降臨">☄ 第 ${S.cycle}／${S.opts.doom.end} 輪</span>`:''}
     <span class="pill${myTurn?' on':''}">${over?'遊戲結束':myTurn?'你的回合':'輪到 '+esc(S.players[S.turn].name)}</span><span class="sp"></span>
     <button class="btn sm" data-a="guide" aria-pressed="${ui.guide}">指引：${ui.guide?'開':'關'}</button><button class="btn sm" data-a="rules">規則</button><button class="btn sm" data-a="leave">離開</button></header>
     ${seatLine}<section class="opps">${opps}</section>${claim}${wait?`<div class="wait">${wait}${a!==me&&ui.loadNote?esc(ui.loadNote):''}</div>`:''}${guideHTML(me,mine,myTurn,idle)}<section class="center">${center}</section>${meHTML}`;
@@ -674,7 +675,7 @@ function promptHTML(){
 function overHTML(){
   if(!S||S.phase!=='over'||ui.hideOver||tut)return '';
   const w=S.winners;
-  return `<div class="shade mid"><div class="sheet"><h2>${w.type==='solo'?'個人勝利':'陣營勝利：'+FAC[w.fac].nation}</h2>
+  return `<div class="shade mid"><div class="sheet"><h2>${w.type==='solo'?'個人勝利':w.type==='doom'?'☄ 末日降臨':'陣營勝利：'+FAC[w.fac].nation}</h2>${w.type==='doom'?'<p class="dim small" style="margin:0">倒數結束，由個人勝利條件完成最多的人倖存。</p>':''}
     <p style="margin:0">${w.ids.map((i)=>esc(S.players[i].name)+'（'+S.players[i].role.n+'）').join('、')} 獲勝！</p>
     ${S.players.map((p,i)=>`<div class="seat"><span>${esc(p.name)}${w.ids.includes(i)?' ★':''}</span><span class="tag-${facKey(p.role.n)}">${p.role.n}・${FAC[ROLES[p.role.n].f].nation}</span></div>`).join('')}
     <div class="row">${local?'<button class="btn pri" data-a="again">再來一局</button>':myPid()>=0?'<button class="btn pri" data-a="newgame">再來一局（同一批玩家）</button>'+(isHost()?'<button class="btn" data-a="tolobby">回到大廳</button>':''):''}
@@ -752,6 +753,10 @@ function rulesHTML(){
   <li><b>個人勝利</b>：你面前同時擁有角色卡上指定的裝備。大多數角色是「任 1 個自己角色的裝備＋2 張指定裝備」；村長是「任 2 個村長裝備＋村長家的地契」；幼童是「任 2 個幼童裝備＋魔女玩偶」；史萊姆是「任 4 個其他類裝備」。畫面左下會顯示你目前的進度。</li>
   <li><b>陣營勝利</b>：同一陣營至少 <b>2 位</b>玩家，而且<b>每個人</b>面前都有「自己角色的專屬裝備 2 張」。史萊姆沒有專屬裝備，需湊齊其他類裝備 3 張。</li>
   <li><b>判定時機</b>：每個動作（包含連鎖的技能、事件與【無效】）全部結算完才判定。如果同時有數人達成，從當前回合玩家開始依座位順序判定，<b>個人勝利優先於陣營勝利</b>。</li></ul>
+  <h3>可選規則：末日倒數</h3><p>想控制遊戲長度時，房主可以在大廳勾選「末日倒數」（單機練習也可以）。</p><ul>
+  <li>遊戲有輪數上限：4 人 14 輪、5 人 12 輪、6 人 10 輪（全桌每人輪到一次為一輪，畫面上方會顯示「☄ 第 N／上限 輪」）。</li>
+  <li>最後 5 輪的每一輪開始時，由先手玩家強制觸發一張事件（末日將至）。</li>
+  <li>最後一輪結束仍無人獲勝時，末日降臨：比較每個人的個人勝利條件完成度（專屬裝備依張數算部分完成；史萊姆依其他類裝備張數），最高者獲勝；同分再比陣營條件進度、面前裝備張數，仍同分則共同倖存。</li></ul>
   <h3>角色一覽</h3><ul>${rl}</ul>
   <h3>範例回合</h3>
   <p>小美是<b class="tag-r">魔王軍</b>的吸血鬼，戰鬥指數 3；阿凱是<b class="tag-b">勇者團</b>的劍士，戰鬥指數 2，面前有 2 張未橫放的裝備。輪到小美：</p>
@@ -794,7 +799,8 @@ function render(){
 document.addEventListener('input',(e)=>{const t=e.target;if(t.id==='nm')myName=t.value;if(t.id==='code'){ui.codeIn=t.value.replace(/\D/g,'').slice(0,4);if(t.value!==ui.codeIn)t.value=ui.codeIn;}});
 document.addEventListener('change',(e)=>{const t=e.target;
   if(t.id==='pr')ui.practice=+t.value;
-  if(net&&isHost()&&net.doc){if(t.id==='ob')setDoc({bots:+t.value});}
+  if(t.id==='pdoom'){ui.doom=t.checked;store.set('ew-doom',t.checked?'1':'0');}
+  if(net&&isHost()&&net.doc){if(t.id==='ob')setDoc({bots:+t.value});if(t.id==='odoom')setDoc({doom:t.checked});}
 });
 document.addEventListener('click',(e)=>{
   const el=e.target.closest('[data-a]');if(!el)return;
@@ -824,7 +830,7 @@ document.addEventListener('click',(e)=>{
       const seats=[],dropped=[];
       S.players.forEach((p)=>{if(p.bot)seats.push({id:p.id,name:p.name,bot:true});else if(online(p.id))seats.push({id:p.id,name:p.name});else dropped.push(p.name);});
       for(let k=0;seats.length<4;k++){const id='bot'+k;if(!seats.some((x)=>x.id===id))seats.push({id,name:BOTN[k]||('電腦'+k),bot:true});}
-      S=G.newGame(seats);introKey=introKeyOf(S);ui.hideOver=false;ui.sel=null;ui.give=false;V++;
+      S=G.newGame(seats,{doom:!!(S.opts&&S.opts.doom)});introKey=introKeyOf(S);ui.hideOver=false;ui.sel=null;ui.give=false;V++;
       push({phase:'play',s:JSON.stringify(S)});mode='game';
       if(dropped.length)toast('已略過離線玩家：'+dropped.join('、'));
       render();return;}

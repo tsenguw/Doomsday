@@ -128,7 +128,7 @@ var G = (function () {
     });
     shuffle(pool);
     const s = {
-      phase: 'play', opts: { facN: 2, skill: 'life' }, // 固定規則：陣營勝利每人專屬裝備 2 張；角色技能每次轉生 1 次
+      phase: 'play', opts: { facN: 2, skill: 'life', doom: opts && opts.doom ? doomCfg(seats.length, opts.doom) : null }, // 固定規則：陣營勝利每人專屬裝備 2 張；角色技能每次轉生 1 次
       players: seats.map((p, i) => ({ id: p.id, name: p.name, bot: !!p.bot, hand: [], front: [], role: { n: pool[i], rev: false, used: false } })),
       turn: 0, acted: false, round: 1,
       deck: shuffle(CARDS.map((c) => c.id)), discard: [], market: [],
@@ -138,7 +138,7 @@ var G = (function () {
     };
     s.players.forEach((p, i) => drawTo(s, i, 5));
     refillMarket(s);
-    s.turn = rnd(n);
+    s.turn = rnd(n); s.first = s.turn; s.cycle = 1;
     log(s, `遊戲開始，共 ${n} 人。${nm(s, s.turn)} 先手。`);
     return s;
   }
@@ -172,6 +172,28 @@ var G = (function () {
         log(s, `陣營勝利：${FAC[f].nation}（${mem.map((i) => nm(s, i)).join('、')}）！`); return;
       }
     }
+  }
+
+  // 末日倒數：人數越多，輪數越少（總回合數相近）
+  const DOOM_END = { 4: 14, 5: 12, 6: 10 };
+  function doomCfg(n, d) { const end = (d && d.end) || DOOM_END[n] || 12; return { from: (d && d.from) || end - 5, end }; }
+  // 末日倒數：最後一輪結束時比較個人勝利進度
+  function doomScore(p) {
+    const r = p.role.n, R = ROLES[r], fc = frontCards(p), g = facProgress({ opts: { facN: 2 } }, p);
+    let prog;
+    if (r === '史萊姆') prog = Math.min(4, fc.filter((c) => c.type === '他').length) / 4;
+    else {
+      const need = R.ownN || 1, own = fc.filter((c) => c.role === r && !(r === '魔女' && c.name === '變身藥水')).length;
+      prog = (Math.min(own, need) / need + R.win.filter((w) => fc.some((c) => c.name === w)).length) / (1 + R.win.length);
+    }
+    return [prog, Math.min(g.have, g.need) / g.need, p.front.length];
+  }
+  function doomEnd(s) {
+    const sc = s.players.map(doomScore), cmp = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+    let best = sc[0]; sc.forEach((x) => { if (cmp(x, best) > 0) best = x; });
+    const ids = order(s, s.first).filter((i) => cmp(sc[i], best) === 0);
+    s.phase = 'over'; s.winners = { type: 'doom', ids };
+    log(s, `☄ 末日降臨！最後倖存：${ids.map((i) => nm(s, i) + '（' + s.players[i].role.n + '）').join('、')}（個人勝利條件完成最多）。`);
   }
 
   // ---------- engine loop ----------
@@ -569,7 +591,16 @@ var G = (function () {
       if (p.hand.length < 5) drawTo(s, pid, 5 - p.hand.length);
       s.turn = next(s, pid); s.acted = false; s.round++;
       if (s.opts.skill === 'turn') s.players[s.turn].role.used = false;
+      const D = s.opts.doom;
+      if (s.turn === s.first) {
+        s.cycle = (s.cycle || 1) + 1;
+        if (D && s.cycle > D.end) { doomEnd(s); return null; }
+      }
       log(s, `— 輪到 ${nm(s, s.turn)} —`);
+      if (D && s.turn === s.first && s.cycle >= D.from) {
+        log(s, `☄ 末日將至（第 ${s.cycle}／${D.end} 輪）：強制觸發一張事件。`);
+        s.q.push({ op: 'event', pid: s.turn });
+      }
       return run(s), null;
     }
     if (a.t === 'skill') {
