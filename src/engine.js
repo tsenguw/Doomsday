@@ -68,7 +68,6 @@ var G = (function () {
     ['dragon', '巨龍沉眠處', '收回所有玩家手牌，洗牌後由觸發者開始平均發給所有玩家'],
     ['port', '貿易商港亞菲達安', '每位玩家擲四面骰得 N，將 N 張手牌丟入棄牌堆並抽取相同張數'],
     ['wreck', '沉船墓地', '每位玩家擲四面骰，擲到 4 則強制轉生（不觸發事件）'],
-    ['fairy', '妖精森林', '已揭露角色的玩家可觀看事件牌庫頂三張並任意調換順序'],
     ['newbie', '新手村', '尚未揭露角色的玩家從資源牌庫頂抽 1 張：裝備放置自己面前，功能卡丟入棄牌堆'],
     ['oasis', '沙漠綠洲', '每位玩家擲四面骰：1 或 2 須將面前 1 張裝備丟入棄牌堆；3 或 4 可橫放（覆蓋）面前 1 張裝備'],
     ['beast', '野獸巢穴', '每位玩家將手牌 1 張其他類裝備放到別人面前；未放置的玩家須揭露角色直至轉生'],
@@ -433,13 +432,6 @@ var G = (function () {
   };
   RESP.port = (s, p, a) => { const h = s.players[p.pid].hand; let k = 0; a.forEach((c) => { if (rm(h, c)) { s.discard.push(c); k++; } }); drawTo(s, p.pid, k); log(s, `${nm(s, p.pid)} 換掉 ${k} 張手牌。`); };
   EVT.wreck = (s, pid) => { if (d4(s, pid) === 4) qFront(s, [{ op: 'reinc', pid, event: false }]); };
-  EVT.fairy = (s, pid) => {
-    if (!s.players[pid].role.rev) return;
-    const top = s.evDeck.slice(0, 3); if (top.length < 2) return;
-    const perms = top.length === 2 ? [[0, 1], [1, 0]] : [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
-    ask(s, pid, 'choice', 'fairy', { title: '妖精森林：決定事件牌庫頂的順序（左邊先發生）', opts: perms.map((pm) => ({ id: pm.join(''), label: pm.map((i) => EV[top[i]].name).join(' → ') })), k3: top.length });
-  };
-  RESP.fairy = (s, p, a) => { const top = s.evDeck.splice(0, p.k3); s.evDeck = a.split('').map((i) => top[+i]).concat(s.evDeck); log(s, `${nm(s, p.pid)} 調整了事件牌庫頂的順序。`); };
   EVT.newbie = (s, pid) => { if (!s.players[pid].role.rev) gamble(s, pid, '新手村'); };
   EVT.oasis = (s, pid) => {
     const r = d4(s, pid), cards = ownFrontPick(s, pid); if (!cards.length) return;

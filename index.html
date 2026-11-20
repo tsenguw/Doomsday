@@ -267,7 +267,6 @@ var G = (function () {
     ['dragon', '巨龍沉眠處', '收回所有玩家手牌，洗牌後由觸發者開始平均發給所有玩家'],
     ['port', '貿易商港亞菲達安', '每位玩家擲四面骰得 N，將 N 張手牌丟入棄牌堆並抽取相同張數'],
     ['wreck', '沉船墓地', '每位玩家擲四面骰，擲到 4 則強制轉生（不觸發事件）'],
-    ['fairy', '妖精森林', '已揭露角色的玩家可觀看事件牌庫頂三張並任意調換順序'],
     ['newbie', '新手村', '尚未揭露角色的玩家從資源牌庫頂抽 1 張：裝備放置自己面前，功能卡丟入棄牌堆'],
     ['oasis', '沙漠綠洲', '每位玩家擲四面骰：1 或 2 須將面前 1 張裝備丟入棄牌堆；3 或 4 可橫放（覆蓋）面前 1 張裝備'],
     ['beast', '野獸巢穴', '每位玩家將手牌 1 張其他類裝備放到別人面前；未放置的玩家須揭露角色直至轉生'],
@@ -632,13 +631,6 @@ var G = (function () {
   };
   RESP.port = (s, p, a) => { const h = s.players[p.pid].hand; let k = 0; a.forEach((c) => { if (rm(h, c)) { s.discard.push(c); k++; } }); drawTo(s, p.pid, k); log(s, `${nm(s, p.pid)} 換掉 ${k} 張手牌。`); };
   EVT.wreck = (s, pid) => { if (d4(s, pid) === 4) qFront(s, [{ op: 'reinc', pid, event: false }]); };
-  EVT.fairy = (s, pid) => {
-    if (!s.players[pid].role.rev) return;
-    const top = s.evDeck.slice(0, 3); if (top.length < 2) return;
-    const perms = top.length === 2 ? [[0, 1], [1, 0]] : [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
-    ask(s, pid, 'choice', 'fairy', { title: '妖精森林：決定事件牌庫頂的順序（左邊先發生）', opts: perms.map((pm) => ({ id: pm.join(''), label: pm.map((i) => EV[top[i]].name).join(' → ') })), k3: top.length });
-  };
-  RESP.fairy = (s, p, a) => { const top = s.evDeck.splice(0, p.k3); s.evDeck = a.split('').map((i) => top[+i]).concat(s.evDeck); log(s, `${nm(s, p.pid)} 調整了事件牌庫頂的順序。`); };
   EVT.newbie = (s, pid) => { if (!s.players[pid].role.rev) gamble(s, pid, '新手村'); };
   EVT.oasis = (s, pid) => {
     const r = d4(s, pid), cards = ownFrontPick(s, pid); if (!cards.length) return;
@@ -968,7 +960,6 @@ var ART = (function () {
     dragon: P('M14 74Q8 38 46 38Q84 38 84 62Q84 80 62 78Q48 76 50 64Q40 62 36 72Q50 92 82 84Q50 100 14 74Z', 'i') + P('M40 40L52 8L64 20L70 42Z', 'a') + P('M40 68Q44 64 48 68', 'sk', 2) + P('M24 46L20 38M32 42L30 33', 's', 3) + P('M74 20h8l-8 8h8M88 8h6l-6 6h6', 'sa', 2),
     port: P('M10 64H90L78 84H22Z', 'i') + L(50, 64, 50, 12, 's', 4) + P('M54 16L82 58H54Z', 'a') + P('M46 22L24 58H46Z', 'i') + P('M50 12L62 16L50 20Z', 'a') + P('M4 92q10-8 20 0t20 0t20 0t20 0t16 0', 'sa', 3),
     wreck: P('M18 82L34 40L64 50L52 84Z', 'i') + P('M34 40L44 62L52 84M26 62L58 68', 'sk', 2) + L(44, 44, 74, 10, 's', 4) + P('M74 10L58 14L66 24Z', 'a') + P('M4 88q10-8 20 0t20 0t20 0t20 0t16 0', 'sa', 3) + P('M70 78L78 60L86 78Z', 'j'),
-    fairy: P('M30 18L50 60H38V90H22V60H10Z', 'i') + P('M68 8L92 62H76V90H60V62H44Z', 'j') + star(50, 28, 7, 'a') + star(84, 76, 5, 'a') + star(14, 80, 5, 'a') + star(48, 76, 4, 'a') + O(30, 40, 2, 'k'),
     newbie: P('M20 52L50 24L80 52V88H20Z', 'i') + P('M12 54L50 18L88 54L82 60L50 30L18 60Z', 'a') + R(44, 64, 12, 24, 'k') + R(26, 60, 10, 10, 'k') + R(64, 60, 10, 10, 'k') + L(70, 30, 70, 14, 's', 3) + P('M70 14L84 18L70 22Z', 'a'),
     oasis: P('M52 86Q44 56 56 34', 's', 6) + P('M56 34Q30 18 16 34Q38 28 56 34Q50 10 28 6Q52 8 56 34Q70 8 92 14Q70 18 56 34Q82 28 92 46Q74 34 56 34Z', 'i') + E(50, 90, 40, 7, 'a') + O(84, 70, 0, 'a') + P('M4 80Q20 70 34 82', 'sj', 3),
     beast: P('M4 92Q8 18 50 14Q92 18 96 92Z', 'i') + P('M26 92Q28 44 50 40Q72 44 74 92Z', 'k') + O(42, 66, 4, 'a') + O(58, 66, 4, 'a') + P('M40 80L44 74L48 80L52 74L56 80L60 74', 'sj', 2),
@@ -1402,7 +1393,7 @@ const PTIP={
   beast:'不放置的話，你的角色會被揭露，直到轉生為止。',
   oasisLock:'橫放的裝備不會被別人移動或丟棄，而且照樣計入勝利條件。',
   ruins:'放到面前的裝備才算勝利進度。',islands:'這張會移到下家面前，挑一張你不需要的。',
-  temple:'選中的功能卡會由你立刻發動一次。',fairy:'排在最左邊的事件會最先被觸發。',evPeek:'下一次有人轉生或發動「事件觸發」時，就會觸發牌庫頂的事件。',
+  temple:'選中的功能卡會由你立刻發動一次。',evPeek:'下一次有人轉生或發動「事件觸發」時，就會觸發牌庫頂的事件。',
   duelT:'比的是雙方角色的戰鬥指數，高的贏；你的指數寫在左下角色卡上。',sword:'比的是雙方角色的戰鬥指數；輸了你不會失去裝備。',
   viewHand:'只有你看得到結果。',viewRole:'只有你看得到結果。',archer:'你們兩人的整副手牌會互換。',
 };
