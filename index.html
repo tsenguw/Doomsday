@@ -120,6 +120,8 @@ label{font-size:13px;color:var(--dim);display:flex;flex-direction:column;gap:4px
 .rules li{margin:3px 0}
 .rules ul,.rules ol{margin:2px 0 4px;padding-left:1.4em}
 .off{color:#e0642a;font-weight:600}
+.seatTag{font-size:11px;padding:1px 7px;border-radius:10px;background:#e3a33b33;color:#ffd48a;border:1px solid #e3a33b88;margin-left:4px}
+.seatline{margin:0 0 8px;padding:0 16px;opacity:.9;line-height:1.7}
 .coach{position:fixed;top:0;left:0;right:0;margin:0 auto;width:min(640px,100%);z-index:60;background:#1b2a36;border:2px solid var(--ember);border-top:0;border-radius:0 0 12px 12px;padding:8px 14px;box-shadow:0 6px 24px #000a;font-size:14px;line-height:1.6}
 .coach p{margin:4px 0 6px;max-width:none}
 .tut-hl{scroll-margin-top:150px;outline:3px solid var(--ember)!important;outline-offset:3px;animation:tutp 1.2s ease-in-out infinite}
@@ -310,6 +312,7 @@ var G = (function () {
   }
   function tagOf(s, x) { return nm(s, x.p) + '面前'; }
   const next = (s, i) => (i + 1) % s.players.length;
+  const ringTxt = (s, pid) => { const n = s.players.length; return `座位順序（箭頭方向為下家）：${s.players.map((_, k) => nm(s, (pid + k) % n)).join(' → ')} → 回到${nm(s, pid)}。你的上家是 ${nm(s, (pid + n - 1) % n)}，下家是 ${nm(s, next(s, pid))}`; };
   const prev = (s, i) => (i + s.players.length - 1) % s.players.length;
   function reveal(s, i, why) { const r = s.players[i].role; if (!r.rev) { r.rev = true; log(s, `${nm(s, i)} 的角色揭露：${r.n}${why ? '（' + why + '）' : ''}。`); } }
 
@@ -554,7 +557,7 @@ var G = (function () {
     rm(A, a[0]); A.push(p.m); B.push(a[0]);
     log(s, `${nm(s, p.pid)} 與 ${nm(s, p.t)} 交換了一張手牌裝備。`);
   };
-  MAGIC.wind = (s, pid) => ask(s, pid, 'choice', 'wind', { title: '資源大風吹：指定手牌流向', opts: [{ id: 'pn', label: '所有人把手牌傳給下家' }, { id: 'pp', label: '所有人把手牌傳給上家' }, { id: 'dn', label: '所有人向下家抽一張' }, { id: 'dp', label: '所有人向上家抽一張' }] });
+  MAGIC.wind = (s, pid) => ask(s, pid, 'choice', 'wind', { title: '資源大風吹：指定手牌流向。' + ringTxt(s, pid), opts: [{ id: 'pn', label: '所有人把手牌傳給下家' }, { id: 'pp', label: '所有人把手牌傳給上家' }, { id: 'dn', label: '所有人向下家抽一張' }, { id: 'dp', label: '所有人向上家抽一張' }] });
   RESP.wind = (s, p, a) => {
     const n = s.players.length, hands = s.players.map((x) => x.hand);
     if (a[0] === 'p') {
@@ -691,7 +694,7 @@ var G = (function () {
     const n = s.players.length, opts = [];
     for (let k = 1; k < n; k++) opts.push({ id: 'n' + k, label: `角色卡傳給下家 ${k} 次` });
     for (let k = 1; k < n; k++) opts.push({ id: 'p' + k, label: `角色卡傳給上家 ${k} 次` });
-    ask(s, pid, 'choice', 'imp', { title: '惡作劇：所有玩家的角色卡要怎麼傳？', opts });
+    ask(s, pid, 'choice', 'imp', { title: '惡作劇：所有玩家的角色卡要怎麼傳？' + ringTxt(s, pid), opts });
   };
   RESP.imp = (s, p, a) => {
     const n = s.players.length, k = +a.slice(1) * (a[0] === 'n' ? 1 : -1), roles = s.players.map((x) => x.role);
@@ -1015,7 +1018,7 @@ let mode='home',local=false,net=null,S=null,V=0,lastS='',chain=Promise.resolve()
 let myName=store.get('ew-name')||'';
 let NEED=()=>false;
 const ui={guide:store.get('ew-guide')!=='0',sel:null,give:false,psel:[],pkey:'',detail:null,rules:false,pile:false,practice:3,codeIn:'',busy:false,loadNote:''};
-try{const h=(location.hash||'').match(/^#room-([A-Z]{4})$/);if(h)ui.codeIn=h[1];}catch(e){}
+try{const h=(location.hash||'').match(/^#room-(\d{4})$/);if(h)ui.codeIn=h[1];}catch(e){}
 
 function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{el.hidden=true},3600);}
 function facKey(role){return FAC[ROLES[role].f].key}
@@ -1113,15 +1116,15 @@ function seatRef(){return db.doc('games/'+net.code+'/seats/'+uid)}
 async function createRoom(){
   if(!needName())return;ui.busy=true;render();
   try{
-    let code='';const A='ABCDEFGHJKLMNPQRSTUVWXYZ';for(let i=0;i<4;i++)code+=A[Math.floor(Math.random()*A.length)];
+    let code='';for(let t=0;t<12;t++){code=String(Math.floor(Math.random()*10000)).padStart(4,'0');const ex=await db.doc('games/'+code).get();if(!ex.exists)break;}
     const ts=Date.now();await db.doc('games/'+code).set({v:1,host:uid,phase:'lobby',bots:0,s:'',ts});if(db.touch)db.touch(code,ts);
     subscribe(code);await mySeat();
   }catch(e){toast(e&&e.code==='invalid_argument'?'無法建立房間：你沒有這個頁面的寫入權限。':'建立房間失敗（'+((e&&e.code)||'')+'）');}
   ui.busy=false;render();
 }
 async function joinRoom(){
-  if(!needName())return;const code=(ui.codeIn||'').toUpperCase().trim();
-  if(!/^[A-Z]{4}$/.test(code))return toast('請輸入 4 個英文字母的房號');
+  if(!needName())return;const code=(ui.codeIn||'').trim();
+  if(!/^\d{4}$/.test(code))return toast('請輸入 4 位數字的房號');
   ui.busy=true;render();
   try{
     const snap=await db.doc('games/'+code).get();
@@ -1299,7 +1302,7 @@ function homeHTML(){
   <div class="panel"><h2>連線對戰</h2>
     ${!capReady?'<p class="dim small">連線功能準備中…</p>':on?(canWrite===false?'<p class="hint">你目前對這個頁面只有檢視權限，無法建立或加入房間。請頁面擁有者把你的分享權限調整為可參與／可編輯。</p>':''):`<p class="hint">${esc(netErr||'這個畫面無法使用連線功能。')}仍可在下方單機練習。</p>`}
     <div class="row"><button class="btn pri" data-a="create" ${on&&!ui.busy?'':'disabled'}>建立房間</button>
-    <span class="dim">或</span><input type="text" id="code" maxlength="4" size="6" placeholder="房號" value="${esc(ui.codeIn)}" style="text-transform:uppercase;letter-spacing:.2em">
+    <span class="dim">或</span><input type="text" id="code" inputmode="numeric" pattern="[0-9]*" maxlength="4" size="6" placeholder="4 位數房號" value="${esc(ui.codeIn)}" style="letter-spacing:.2em">
     <button class="btn" data-a="join" ${on&&!ui.busy?'':'disabled'}>加入房間</button></div>
     <p class="dim small">${NET==='claude'?'所有玩家都要開啟同一個頁面連結並登入；':'所有玩家開啟同一個網址即可，不用登入；'}房主建立房間後把 4 碼房號或邀請連結傳給朋友。</p></div>
   <div class="panel"><h2>單機練習</h2><div class="row"><label for="pr">電腦對手<select id="pr">${[3,4,5].map((n)=>`<option value="${n}" ${n===ui.practice?'selected':''}>${n} 位</option>`).join('')}</select></label>
@@ -1332,8 +1335,10 @@ function gameHTML(){
   const myTurn=me>=0&&S.turn===me&&!over,idle=!S.prompt&&!S.q.length;
   NEED=mine?((cid)=>{const c=C(cid),r=mine.role.n;return c.k==='E'&&(r==='史萊姆'?c.type==='他':c.role===r||ROLES[r].win.includes(c.name));}):(()=>false);
   const a=actor(),order=[];for(let i=1;i<=S.players.length;i++){const k=((me<0?-1:me)+i)%S.players.length;if(k!==me)order.push(k);}
+  const nP=S.players.length,upI=me>=0?(me+nP-1)%nP:-1,downI=me>=0?(me+1)%nP:-1;
+  const seatLine=me>=0?`<p class="seatline small">回合順序：${[...Array(nP).keys()].map((k)=>{const j=(me+k)%nP;return j===me?'<b>你</b>':esc(S.players[j].name);}).join(' → ')} → 回到你。　<b>上家</b>（${esc(S.players[upI].name)}）<b>下家</b>（${esc(S.players[downI].name)}）</p>`:'';
   const opps=order.map((i)=>{const p=S.players[i];
-    return `<div class="opp${S.turn===i&&!over?' turn':''}"><div class="row" style="justify-content:space-between;gap:6px"><span class="nm">${esc(p.name)}${p.bot?' <span class="dim small">電腦</span>':!local&&net&&!online(p.id)?' <span class="off small">離線</span>':''}</span><span class="pill" title="手牌張數">手牌 ${p.hand.length}</span></div>
+    return `<div class="opp${S.turn===i&&!over?' turn':''}"><div class="row" style="justify-content:space-between;gap:6px"><span class="nm">${esc(p.name)}${i===upI?' <span class="seatTag">上家</span>':i===downI?' <span class="seatTag">下家</span>':''}${p.bot?' <span class="dim small">電腦</span>':!local&&net&&!online(p.id)?' <span class="off small">離線</span>':''}</span><span class="pill" title="手牌張數">手牌 ${p.hand.length}</span></div>
     <div class="chips">${p.role.rev||over?roleCardHTML(p.role.n,{mini:true}):backHTML()}<span class="small">${roleLine(p,p.role.rev||over)}${S.turn===i&&!over?'<br><span class="hint">回合中</span>':''}</span></div>
     <div class="chips">${p.front.map(chipHTML).join('')||'<span class="dim small">面前沒有裝備</span>'}</div>
     ${!local&&isHost()&&!over&&p.id.indexOf('bot')!==0?`<div><button class="btn sm" data-a="tobot" data-p="${i}">${p.bot?'交還給玩家':'交給電腦代打'}</button></div>`:''}</div>`;}).join('');
@@ -1375,7 +1380,7 @@ function gameHTML(){
   return `<header class="bar"><h1>末日三族</h1>${net?`<span class="pill">房號 ${net.code}</span>`:'<span class="pill">單機練習</span>'}<span class="pill">第 ${S.round} 手</span>
     <span class="pill${myTurn?' on':''}">${over?'遊戲結束':myTurn?'你的回合':'輪到 '+esc(S.players[S.turn].name)}</span><span class="sp"></span>
     <button class="btn sm" data-a="guide" aria-pressed="${ui.guide}">指引：${ui.guide?'開':'關'}</button><button class="btn sm" data-a="rules">規則</button><button class="btn sm" data-a="leave">離開</button></header>
-    <section class="opps">${opps}</section>${claim}${wait?`<div class="wait">${wait}${a!==me&&ui.loadNote?esc(ui.loadNote):''}</div>`:''}${guideHTML(me,mine,myTurn,idle)}<section class="center">${center}</section>${meHTML}`;
+    ${seatLine}<section class="opps">${opps}</section>${claim}${wait?`<div class="wait">${wait}${a!==me&&ui.loadNote?esc(ui.loadNote):''}</div>`:''}${guideHTML(me,mine,myTurn,idle)}<section class="center">${center}</section>${meHTML}`;
 }
 const PTIP={
   null:'打出【無效】會讓對方這次的效果直接失效。你的【無效】進棄牌堆，要等你自己的回合結束才補牌。',
@@ -1389,7 +1394,7 @@ const PTIP={
   gatherB:'沒選的那張會洗回資源牌庫。',
   swapT:'接下來要猜對方手牌裡有哪種裝備，猜中才會交換。',swapR:'猜中對方手牌裡有的裝備才會交換，猜錯這張卡就浪費了。',swapN:'指定名稱較難猜中；選「任一張」只要對方有該角色的裝備就成立。',
   swapGive:'這張會交給對方，挑一張你不需要的。',
-  wind:'「下家」是回合順序的下一位，「上家」是上一位。傳的是整副手牌，抽的是隨機一張。',
+  wind:'「下家」是回合順序的下一位，「上家」是上一位（畫面上對手旁會標示，選項裡也會列出名字）。傳的是整副手牌，抽的是隨機一張。',
   port:'棄幾張就抽幾張。標 ★ 的建議留著。',
   imp:'所有人的角色卡一起移動，你也會換到別人的角色，勝利條件跟著改變。',
   slime:'選定後你就變成那個角色，勝利條件與技能都會改變，而且角色重新蓋起來。',
@@ -1506,7 +1511,7 @@ function rulesHTML(){
   <li>洗勻資源牌庫，每人發 5 張手牌（裝備與功能卡混合）。</li>
   <li>牌庫頂翻開 3 張放在<b>市集</b>。</li>
   <li>洗勻事件牌庫，放在一旁。每位玩家面前的空位用來放置裝備。</li>
-  <li>依座位順序輪流進行回合。座位順序中，下一位是你的<b>下家</b>，上一位是你的<b>上家</b>。</li></ol>
+  <li>依座位順序輪流進行回合。座位順序中，下一位是你的<b>下家</b>，上一位是你的<b>上家</b>；牌桌畫面上方會寫出「上家（某某）、下家（某某）」，對手名字旁也有標籤。</li></ol>
   <h3>你的回合：四選一</h3><p>每個回合你<b>必須且只能</b>從下列四個行動中選一個：</p>
   <ol><li><b>發動一張資源卡</b>。
    <ul><li>裝備：放到自己面前，或放到任何一位玩家面前。如果你放給別人，對方可以選擇<b>收下</b>，也可以<b>退回</b>到你面前。裝備放下後，你可以選擇是否發動它的技能。</li>
@@ -1570,7 +1575,7 @@ function render(){
 }
 
 // ---------- 事件處理 ----------
-document.addEventListener('input',(e)=>{const t=e.target;if(t.id==='nm')myName=t.value;if(t.id==='code')ui.codeIn=t.value.toUpperCase();});
+document.addEventListener('input',(e)=>{const t=e.target;if(t.id==='nm')myName=t.value;if(t.id==='code'){ui.codeIn=t.value.replace(/\D/g,'').slice(0,4);if(t.value!==ui.codeIn)t.value=ui.codeIn;}});
 document.addEventListener('change',(e)=>{const t=e.target;
   if(t.id==='pr')ui.practice=+t.value;
   if(net&&isHost()&&net.doc){if(t.id==='ob')setDoc({bots:+t.value});}
@@ -1686,7 +1691,7 @@ async function bootFirebase(){
   }catch(e){db=null;if(!netErr)netErr='連不上連線伺服器，請檢查網路後重新整理頁面。';}
   if(db&&!uid){uid=store.get('ew-uid');if(!uid){uid='x'+Math.random().toString(36).slice(2,12);store.set('ew-uid',uid);}}
   capReady=true;
-  if(db&&uid){const sc=store.get('ew-room');if(sc&&/^[A-Z]{4}$/.test(sc)&&(!ui.codeIn||ui.codeIn===sc)){await autoRejoin(sc);return;}}
+  if(db&&uid){const sc=store.get('ew-room');if(sc&&/^\d{4}$/.test(sc)&&(!ui.codeIn||ui.codeIn===sc)){await autoRejoin(sc);return;}}
   render();
 })();
 })();

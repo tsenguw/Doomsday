@@ -113,6 +113,7 @@ var G = (function () {
   }
   function tagOf(s, x) { return nm(s, x.p) + '面前'; }
   const next = (s, i) => (i + 1) % s.players.length;
+  const ringTxt = (s, pid) => { const n = s.players.length; return `座位順序（箭頭方向為下家）：${s.players.map((_, k) => nm(s, (pid + k) % n)).join(' → ')} → 回到${nm(s, pid)}。你的上家是 ${nm(s, (pid + n - 1) % n)}，下家是 ${nm(s, next(s, pid))}`; };
   const prev = (s, i) => (i + s.players.length - 1) % s.players.length;
   function reveal(s, i, why) { const r = s.players[i].role; if (!r.rev) { r.rev = true; log(s, `${nm(s, i)} 的角色揭露：${r.n}${why ? '（' + why + '）' : ''}。`); } }
 
@@ -357,7 +358,7 @@ var G = (function () {
     rm(A, a[0]); A.push(p.m); B.push(a[0]);
     log(s, `${nm(s, p.pid)} 與 ${nm(s, p.t)} 交換了一張手牌裝備。`);
   };
-  MAGIC.wind = (s, pid) => ask(s, pid, 'choice', 'wind', { title: '資源大風吹：指定手牌流向', opts: [{ id: 'pn', label: '所有人把手牌傳給下家' }, { id: 'pp', label: '所有人把手牌傳給上家' }, { id: 'dn', label: '所有人向下家抽一張' }, { id: 'dp', label: '所有人向上家抽一張' }] });
+  MAGIC.wind = (s, pid) => ask(s, pid, 'choice', 'wind', { title: '資源大風吹：指定手牌流向。' + ringTxt(s, pid), opts: [{ id: 'pn', label: '所有人把手牌傳給下家' }, { id: 'pp', label: '所有人把手牌傳給上家' }, { id: 'dn', label: '所有人向下家抽一張' }, { id: 'dp', label: '所有人向上家抽一張' }] });
   RESP.wind = (s, p, a) => {
     const n = s.players.length, hands = s.players.map((x) => x.hand);
     if (a[0] === 'p') {
@@ -494,7 +495,7 @@ var G = (function () {
     const n = s.players.length, opts = [];
     for (let k = 1; k < n; k++) opts.push({ id: 'n' + k, label: `角色卡傳給下家 ${k} 次` });
     for (let k = 1; k < n; k++) opts.push({ id: 'p' + k, label: `角色卡傳給上家 ${k} 次` });
-    ask(s, pid, 'choice', 'imp', { title: '惡作劇：所有玩家的角色卡要怎麼傳？', opts });
+    ask(s, pid, 'choice', 'imp', { title: '惡作劇：所有玩家的角色卡要怎麼傳？' + ringTxt(s, pid), opts });
   };
   RESP.imp = (s, p, a) => {
     const n = s.players.length, k = +a.slice(1) * (a[0] === 'n' ? 1 : -1), roles = s.players.map((x) => x.role);
