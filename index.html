@@ -1334,7 +1334,7 @@ function rulesHTML(){
   const rl=Object.keys(ROLES).map((r)=>`<li><b class="tag-${facKey(r)}">${r}</b>（${FAC[ROLES[r].f].nation}，戰鬥指數 ${ROLES[r].pw}）「${ROLES[r].sk}」：${ROLES[r].d}</li>`).join('');
   const eqN=G.CARDS.filter((c)=>c.k==='E').length,mgN=G.CARDS.filter((c)=>c.k==='M').length;
   const tyN=(t)=>G.CARDS.filter((c)=>c.k==='E'&&c.type===t).length;
-  const facBox=Object.keys(FAC).map((f)=>`<li><b class="tag-${FAC[f].key==='r'?'r':FAC[f].key==='b'?'b':'g'}">${FAC[f].nation}</b>（${f}，定位：${FAC[f].tag}）：${Object.keys(ROLES).filter((r)=>ROLES[r].f===f).join('、')}</li>`).join('');
+  const facBox=Object.keys(FAC).map((f)=>`<li><b class="tag-${FAC[f].key==='r'?'r':FAC[f].key==='b'?'b':'g'}">${FAC[f].nation}</b>（定位：${FAC[f].tag}）：${Object.keys(ROLES).filter((r)=>ROLES[r].f===f).join('、')}</li>`).join('');
   return `<div class="shade mid" data-a="close"><div class="sheet rules"><div class="row" style="justify-content:space-between"><h2>遊戲規則</h2><span class="row"><button class="btn" data-a="gallery">卡牌圖鑑</button><button class="btn" data-a="close">關閉</button></span></div>
   <h3>故事背景</h3>
   <p class="quote">創世神手一捻便創造了大地，他的喜悅化作天空，悲傷的眼淚化作海洋，隨後又創造了各式各樣的生物族群。</p>
@@ -1343,7 +1343,7 @@ function rulesHTML(){
   <h3>遊戲目標</h3>
   <p>在末日降臨前，湊齊自己角色的<b>專屬裝備</b>。有兩種方式獲勝：<b>個人勝利</b>（你自己蒐集齊全）或<b>陣營勝利</b>（你與同陣營的夥伴一起蒐集齊全）。最先達成的人（或陣營）就是這個世界的倖存者，遊戲立即結束。</p>
   <h3>三大陣營</h3><ul>${facBox}</ul>
-  <p>每位玩家一開始只知道自己的角色。同陣營的人是不是夥伴？要靠觀察、試探與角色觀看才能確定；角色可以因轉生而改變陣營，所以也沒有永遠的盟友。</p>
+  <p>每位玩家一開始只知道自己的角色。同陣營的人是不是夥伴？要靠觀察、試探與角色觀看才能確定；角色可以因轉生而改變陣營，沒有永遠的盟友、亦沒有永遠的敵人……</p>
   <h3>遊戲配件</h3><ul>
   <li><b>角色卡 ${Object.keys(ROLES).length} 張</b>：每個陣營 5 張。卡面標示角色名、陣營、戰鬥指數、技能與個人勝利條件。</li>
   <li><b>裝備卡 ${eqN} 張</b>：每張裝備屬於某個角色，並分為攻擊（${tyN('攻')} 張）、防守（${tyN('守')} 張）、其他（${tyN('他')} 張）三種類型；許多裝備也有自己的技能。</li>
