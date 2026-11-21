@@ -1404,6 +1404,18 @@ button.card:hover{transform:none}
 
 /* v19：勝利條件卡依內容高度，不再拉長到底 */
 .rolebox>.wincard{align-self:start!important}
+
+/* v20：手牌寬度＝角色卡寬度（共用 --cw） */
+@media(min-width:861px){
+.me{--cw:150px}
+.rolebox{grid-template-columns:var(--cw) minmax(0,1fr)!important}
+.role>.card,.rolebox .role>.card{width:var(--cw)!important;flex-basis:var(--cw)!important}
+.hand .card{flex:0 0 var(--cw)!important;width:var(--cw)!important;max-width:none!important;min-width:0!important}
+}
+@media(min-width:861px) and (max-width:1499px){.me{--cw:136px}}
+.hand .card .desc,.role>.card .desc{padding-bottom:26px}
+@media(min-width:861px) and (max-width:1399px){.me{--cw:128px}}
+@media(min-width:861px) and (max-width:1300px){.me{--cw:118px}}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&display=swap" rel="stylesheet">
 </head>
@@ -1622,7 +1634,7 @@ setInterval(tmTick,250);
 // ---------- 新手互動式教學 ----------
 const TUT_STEPS=[
   {title:'歡迎來到末日',info:true,txt:'創世神宣告毀滅世界，只留下最後資源爭奪戰的勝利者。你是<b>村民會</b>的<b>農夫</b>。這堂課會帶你親手完成一次「個人勝利」，約 3 分鐘，不用連線。'},
-  {title:'你的目標',info:true,hl:['.rolebox'],txt:'畫面左下的「勝利條件」寫著：把<b>蘋果、烤蜥蜴串</b>和<b>任 1 個農夫裝備</b>（例如鋤頭）都放到<b>你面前</b>，你就贏了。卡牌上標 ★ 的就是你需要的。'},
+  {title:'你的目標',info:true,hl:['.rolebox'],txt:'畫面左下的「勝利條件」寫著：把<b>蘋果、烤蜥蜴串</b>和<b>任 1 個農夫裝備</b>（例如鋤頭）都放到<b>你面前</b>，你就贏了。卡牌上標示「你的勝利條件」的，就是你需要的。'},
   {title:'認識畫面',info:true,hl:['.opps'],txt:'左側是三位對手：你看得到他們的手牌張數與面前的裝備；他們的角色在<b>揭露前是蓋著的</b>，沒人知道誰是敵人、誰是夥伴。'},
   {title:'市集與牌庫',info:true,hl:['.worldmap'],txt:'中間是世界地圖：中央的<b>交易市集</b>可以拿手牌來交換，市集下緣是資源牌庫、棄牌堆與地標牌庫；地圖四周是 11 個<b>地標</b>，觸發地標事件時該地標會亮起。右側的戰報會寫下每個人做了什麼。'},
   {title:'動作一：打出裝備',hl:['.hand [data-c="22"]','[data-a="playself"]'],txt:'每回合你必須做<b>一個動作</b>。先點手牌的<b>【蘋果】</b>，再按「打出到自己面前」。',
@@ -1714,7 +1726,7 @@ function tutHL(){
 function frame(cls,art,name,meta,desc,badge,o,attrs){
   o=o||{};
   return `<button class="card ${cls}${o.mini?' mini':''}${o.big?' big':''}${o.sel?' sel':''}${o.lock?' lock':''}${o.dim?' nouse':''}" ${attrs} title="${name}">`
-    +`<span class="art">${art}</span><b>${o.star?'★ ':''}${name}</b>`+(o.mini?'':`<span class="meta">${meta}</span><span class="desc">${desc}</span>`)
+    +`<span class="art">${art}</span><b>${name}</b>`+(o.mini?'':`<span class="meta">${meta}</span><span class="desc">${desc}</span>`)
     +(o.need?'<span class="need">你的勝利條件</span>':'')+(o.tag?`<span class="where">${esc(o.tag)}</span>`:'')+(badge?`<span class="badge">${badge}</span>`:'')+`</button>`;
 }
 function cardHTML(cid,o){
@@ -1942,18 +1954,18 @@ const gHTML=guideHTML(me,mine,myTurn,idle),wHTML=wait?`<span class="wait">${wait
 }
 const PTIP={
   null:'打出【無效】會讓對方這次的效果直接失效。你的【無效】進棄牌堆，要等你自己的回合結束才補牌。',
-  accept:'收下：這張裝備留在你面前（上限 5 張）。退回：它會改放到對方面前。標 ★ 的是你需要的裝備。',
+  accept:'收下：這張裝備留在你面前（上限 5 張）。退回：它會改放到對方面前。標示「你的勝利條件」的是你需要的裝備。',
   eqYN:'裝備技能可用可不用。發動後，手上有【無效】的玩家可以擋下。',
   eqPick:'裝備技能可用可不用，不選任何牌就是不發動。',
   eqGive:'可以放到自己面前，也可以送給隊友或塞給對手。',
-  overflow:'面前最多 5 張。優先留下標 ★ 的勝利條件裝備。',
+  overflow:'面前最多 5 張。優先留下標示「你的勝利條件」的裝備。',
   evDiscard:'橫放的裝備受保護，所以不在可選範圍內。',
-  gatherA:'標 ★ 的是你勝利條件需要的裝備。',farmer:'標 ★ 的是你勝利條件需要的裝備。',duelTake:'標 ★ 的是你勝利條件需要的裝備。',battle:'標 ★ 的是你勝利條件需要的裝備。',
+  gatherA:'標示「你的勝利條件」的是你需要的裝備。',farmer:'標示「你的勝利條件」的是你需要的裝備。',duelTake:'標示「你的勝利條件」的是你需要的裝備。',battle:'標示「你的勝利條件」的是你需要的裝備。',
   gatherB:'沒選的那張會洗回資源牌庫。',
   swapT:'接下來要猜對方手牌裡有哪種裝備，猜中才會交換。',swapR:'猜中對方手牌裡有的裝備才會交換，猜錯這張卡就浪費了。',swapN:'指定名稱較難猜中；選「任一張」只要對方有該角色的裝備就成立。',
   swapGive:'這張會交給對方，挑一張你不需要的。',
   wind:'「下家」是回合順序的下一位，「上家」是上一位（畫面上對手旁會標示，選項裡也會列出名字）。傳的是整副手牌，抽的是隨機一張。',
-  port:'棄幾張就抽幾張。標 ★ 的建議留著。',
+  port:'棄幾張就抽幾張。標示「你的勝利條件」的建議留著。',
   imp:'所有人的角色卡一起移動，你也會換到別人的角色，勝利條件跟著改變。',
   slime:'選定後你就變成那個角色，勝利條件與技能都會改變，而且角色重新蓋起來。',
   witchTake:'你拿走幾張，就要還給對方幾張自己的手牌。',witchGive:'挑你不需要的牌給對方。',
@@ -1974,7 +1986,7 @@ function guideHTML(me,mine,myTurn,idle){
     lines.push(S.prompt.pid===me?'請先回應跳出的選擇，效果結算完才會繼續。':'正在等 '+esc(S.players[S.prompt.pid].name)+' 做選擇，結算完才會繼續。');
     step=myTurn?(S.acted?2:1):0;
   }else if(!myTurn){
-    lines.push('現在是 '+esc(S.players[S.turn].name)+' 的回合。趁這時對照左下的勝利條件：標 ★ 的裝備是你需要的，留意它們在誰面前、有沒有出現在市集。');
+    lines.push('現在是 '+esc(S.players[S.turn].name)+' 的回合。趁這時對照左下的勝利條件：標示「你的勝利條件」的裝備是你需要的，留意它們在誰面前、有沒有出現在市集。');
     if(hasNull)lines.push('你手上有【無效】：別人發動功能卡或裝備技能時，系統會問你要不要打出。');
   }else if(!S.acted){
     step=1;const sel=ui.sel!=null&&mine.hand.includes(ui.sel)?C(ui.sel):null;
@@ -1985,8 +1997,8 @@ function guideHTML(me,mine,myTurn,idle){
       lines.push(sel.fn==='nullify'?'【無效】不能主動打出，只能在別人發動效果時使用。請改選別張，或拿它去和市集交換。':'【'+sel.name+'】：'+sel.desc+'。發動後這張牌進棄牌堆，本回合的動作就用掉了。也可以點市集的牌把它換掉。');
     }else{
       lines.push('輪到你了。這回合從四個動作選一個：打出一張手牌、與市集交換一張、換掉全部手牌（手牌全裝備或全功能卡時）、轉生。');
-      if(needHand.length)lines.push('建議：手上的 ★'+names(needHand)+'是你的勝利條件，點它再按「打出到自己面前」。');
-      else if(needMkt.length)lines.push('建議：市集有你需要的 ★'+names(needMkt)+'。先點一張不需要的手牌，再點市集那張交換。');
+      if(needHand.length)lines.push('建議：手上的'+names(needHand)+'是你的勝利條件，點它再按「打出到自己面前」。');
+      else if(needMkt.length)lines.push('建議：市集有你需要的'+names(needMkt)+'。先點一張不需要的手牌，再點市集那張交換。');
       else lines.push('手上和市集都沒有你需要的裝備。可以用功能卡找牌、和市集換牌；若這個角色的條件太難湊，轉生換一個角色（會觸發一張地標卡）。');
     }
     if(skillOK&&!sel)lines.push('技能「'+R.sk+'」可在動作前或後發動，不算動作，但會揭露你的角色。');
