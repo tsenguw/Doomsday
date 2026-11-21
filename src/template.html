@@ -1065,6 +1065,71 @@ body.tutor .shade.mid{padding-top:calc(var(--coachH,0px) + 8px)}
 }
 .pc-role{flex-wrap:wrap;white-space:normal;overflow:visible;row-gap:2px}
 
+/* ===== v11：手機版修正、iOS Safari 相容 ===== */
+/* 地標名牌：外層固定框置中，內層依文字自然寬度；圖示給明確尺寸（避免 Safari 把 SVG 當 300px 計算） */
+.wrow{position:absolute;display:flex;justify-content:center;align-items:stretch;pointer-events:none}
+.wrow .wtag{position:relative;left:auto;top:auto;transform:none;width:auto;flex:none;height:100%;pointer-events:auto}
+.wlm:hover .wrow .wtag,.wlm:focus-visible .wrow .wtag{transform:translateY(-.25cqw)}
+.wmed{width:4.1cqw;height:4.1cqw;min-width:22px;min-height:22px;aspect-ratio:auto;align-self:center}
+.wmed svg{display:block;width:86%;height:86%;max-width:100%;max-height:100%}
+.wmed.art svg{width:100%;height:100%}
+.wnm{flex:none}
+.whud svg,.wpiles svg,.pile svg,.pc-res svg,.res svg{flex:none}
+
+/* 觸控裝置：不使用 Hover 提示與 Hover 放大（避免點了殘留） */
+@media(hover:none){
+[data-tip]:hover::after,[data-tip]:focus-visible::after{content:none!important;display:none!important}
+.wtip{display:none!important}
+.hand .card:hover,.mkt .cards .card:hover{transform:none}
+.hand .card.sel:hover{transform:translateY(-10px)}
+.wlm:hover .wrow .wtag{transform:none}
+.worldmap:has(.wlm:hover) .wlm:not(:hover){filter:none}
+button.card:hover{transform:none}
+}
+
+@media(max-width:860px){
+/* 地圖：手機上顯示為 1.75 倍螢幕寬，可左右拖曳 */
+.worldmap{width:max(640px,175vw);min-width:0}
+.board{padding:6px 6px 4px}
+.board::after{padding:4px 0 2px}
+/* 行動列：精簡為一排可換行的小按鈕，不能用的動作隱藏，留出畫面 */
+.acts{display:flex;flex-wrap:wrap;gap:6px;padding:8px 8px calc(8px + env(safe-area-inset-bottom));max-height:none}
+.acts .ap{flex:0 0 auto;margin:0;padding:0 6px 0 0}
+.acts .hint,.acts .waitmsg{flex:1 1 100%;order:-1;font-size:12.5px;margin:0}
+.acts .ap{order:-2}
+.acts .btn{flex:1 1 auto;min-width:0;padding:8px 10px;font-size:13.5px;line-height:1.2}
+.acts .btn .cost{display:inline-block;margin:0 0 0 5px;font-size:11px}
+.acts .btn.pri{flex:1 1 100%}
+.acts .tipw:has(.btn:disabled),.acts .btn:disabled{display:none}
+.game{padding-bottom:calc(var(--actsH,64px) + 10px)}
+/* 角色區 */
+.rplate{grid-template-columns:64px minmax(0,1fr)}
+.rp-art{width:64px;height:64px}
+.rp-nm{font-size:16px}
+.rp-sk p{-webkit-line-clamp:4}
+/* 面前 5 格一排 */
+.slots{--mw:calc((100vw - 20px - 4 * 6px) / 5);--mh:calc(var(--mw) * 1.3);display:grid;grid-template-columns:repeat(5,1fr)}
+.slots .card.mini,.slots .slot{width:auto}
+.slots .lockwrap{grid-column:span 2;width:auto;height:var(--mh)}
+.card.mini b{font-size:10.5px}
+/* 手牌：橫向捲動，卡片適中 */
+.hand .card{flex:0 0 132px;width:132px;min-height:184px}
+.hand .card .art{height:64px}
+.hand .card .desc{font-size:12px}
+/* 玩家卡、回合順序 */
+.opps .pc{flex:0 0 min(78vw,260px)}
+.order .ord{grid-template-columns:22px auto auto 1fr auto}
+.side.right .order{flex-direction:column;overflow:visible}
+/* 頂端 */
+.bar{gap:6px 10px}
+.bar .stat small{font-size:10.5px}
+.turnbadge{font-size:13px}
+.turnflash span{font-size:26px}
+.sheet{max-height:90dvh}
+.lmbody>.card.big{width:180px}
+.mkt>.cards:first-of-type .card{flex-basis:132px;width:132px}
+}
+
 /* 開場前導短片（約 10 秒，可略過） */
 #intro{position:fixed;inset:0;z-index:200;background:#07060b;color:#efe4cc;overflow:hidden;font-family:var(--display);animation:introOut .4s ease 9.4s forwards}
 #intro .sc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vh;opacity:0;padding:0 8vw;text-align:center}
@@ -1506,7 +1571,7 @@ function worldMapHTML(){
   const lms=items.map(([id,name])=>{const g=LMG[id],st=lmState(id);
     const flag=st==='hot'?`<span class="wflag hot">${fresh?'觸發中':'最近觸發'}</span>`:st==='done'?'<span class="wflag done">已觸發</span>':st==='trade'?'<span class="wflag trade">交易</span>':'';
     return `<button class="wlm st-${st}${id==='market'?' lm-market':''}${ui.lm===id?' picked':''}" data-a="lmopen" data-id="${id}" style="left:${g[0]}%;top:${g[1]}%;width:${g[2]}%;height:${g[3]}%" aria-label="${esc(name)}（${LM_STATE[st]}）" title="${esc(name)}">
-      <span class="wglow"></span>${id==='market'?'<span class="wtip"><b>交易市集</b>用 1 張手牌交換市集上的 1 張卡（消耗 1 行動）</span>':`<span class="wtip"><b>${esc(name)}</b>${esc(G.EV[id].desc)}<em>${LM_STATE[st]}</em></span>`}<span class="wtag" style="left:${(g[4]+g[6]/2).toFixed(2)}%;top:${g[5]}%;min-width:${g[6]}%;height:${g[7]}%"><span class="wmed${id==='market'?'':' art'}">${id==='market'?ICON.coin:ART.ev(id)}</span><span class="wnm">${esc(name)}</span></span>${flag}</button>`;}).join('');
+      <span class="wglow"></span>${id==='market'?'<span class="wtip"><b>交易市集</b>用 1 張手牌交換市集上的 1 張卡（消耗 1 行動）</span>':`<span class="wtip"><b>${esc(name)}</b>${esc(G.EV[id].desc)}<em>${LM_STATE[st]}</em></span>`}<span class="wrow" style="left:${g[4]}%;top:${g[5]}%;width:${g[6]}%;height:${g[7]}%"><span class="wtag"><span class="wmed${id==='market'?'':' art'}">${id==='market'?ICON.coin:ART.ev(id)}</span><span class="wnm">${esc(name)}</span></span></span>${flag}</button>`;}).join('');
   let doomBig,doomUnit,doomTtl;
   if(S.opts&&S.opts.doom){const D=S.opts.doom,cy=S.cycle||1;if(cy>=D.from){doomTtl='末日已降臨';doomBig=D.sec;doomUnit='秒';}else{doomTtl='世界末日倒數';doomBig=D.from-cy;doomUnit='輪';}}
   else{doomTtl='末日倒數';doomBig='—';doomUnit='未開啟';}
