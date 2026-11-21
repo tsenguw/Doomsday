@@ -1151,6 +1151,19 @@ button.card:hover{transform:none}
 .switch:has(input:disabled){cursor:not-allowed;opacity:.55}
 .sw-lbl{font-weight:600}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ===== 手機：不顯示地圖，只保留狀態列、地標事件與牌庫數量 ===== */
+@media(max-width:860px){
+.board{overflow:visible;padding:6px}
+.board::after{display:none!important}
+.worldmap{width:100%!important;min-width:0!important;aspect-ratio:auto;background:none;box-shadow:none;border-radius:0;container-type:normal;display:flex;flex-direction:column;gap:6px}
+.worldmap .wlm{display:none}
+.whudbar{position:static;width:100%;padding:0;background:none}
+.whudbar .wh-ev{flex:1 1 100%}
+.wpiles{position:static;transform:none;left:auto;bottom:auto;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.wpiles>*{justify-content:center;padding:6px 10px;border-radius:99px;font-size:12.5px;gap:5px}
+.wpiles svg{width:14px;height:14px}
+}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&display=swap" rel="stylesheet">
 </head>
@@ -1369,7 +1382,7 @@ const TUT_STEPS=[
     ok:()=>!S.players[0].hand.includes(TUTC.vr)&&!S.prompt&&!S.q.length,allow:(a,c)=>(a==='sel'&&c===TUTC.vr)||a==='cast'},
   {title:'結束回合',hl:['[data-a="end"]'],txt:'再按一次<b>「結束回合」</b>。',ok:()=>S.turn!==0,allow:(a)=>a==='end'},
   {title:'對手行動中',wait:true,txt:'對手們輪流行動中……',ok:()=>S.turn===0&&!S.prompt&&!S.q.length&&!S.acted},
-  {title:'動作三：與市集交換',hl:['.lm-market','.mkt .cards [data-c="0"]'],txt:'另一種動作是<b>與市集交換</b>：點地圖右下的<b>交易市集</b>，在彈出的市集裡先選一張沒用的手牌，再點<b>【鋤頭】</b>（農夫裝備）。換進來的牌下回合就能打出。',
+  {title:'動作三：與市集交換',hl:['.lm-market','.acts [data-id="market"]','.mkt .cards [data-c="0"]'],txt:'另一種動作是<b>與市集交換</b>：點地圖右下的<b>交易市集</b>（手機版請按下方的「市集交換」），在彈出的市集裡先選一張沒用的手牌，再點<b>【鋤頭】</b>（農夫裝備）。換進來的牌下回合就能打出。',
     ok:()=>S.players[0].hand.includes(0),allow:(a,c)=>a==='sel'||a==='lmopen'||a==='lmclose'||(a==='market'&&c===0)},
   {title:'結束回合',hl:['[data-a="end"]'],txt:'交換也算一個動作，按<b>「結束回合」</b>。',ok:()=>S.turn!==0,allow:(a)=>a==='end'},
   {title:'對手行動中',wait:true,txt:'對手們輪流行動中……',ok:()=>S.turn===0&&!S.prompt&&!S.q.length&&!S.acted},
