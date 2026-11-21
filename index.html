@@ -1354,6 +1354,16 @@ button.card:hover{transform:none}
 .facbox .hd h2{font-size:18px}
 .facbox .note{font-size:12px}
 }
+
+/* v15：「你的面前」固定兩欄排列，不再一整條往下排；橫放的鎖定卡佔滿一列 */
+@media(min-width:1240px){
+.slots{display:grid;grid-template-columns:repeat(2,var(--mw));grid-auto-rows:auto;gap:6px;align-content:start;justify-content:start;align-items:start}
+.slots .card.mini,.slots .slot{width:var(--mw);flex:none;height:var(--mh)}
+.slots .lockwrap{grid-column:1/-1;width:100%;height:var(--mw);display:block}
+.slots .lockwrap>.card.mini.lock{height:var(--mh)}
+.frontz{width:calc(2 * var(--mw) + 6px)}
+.me{grid-template-columns:clamp(272px,20%,361px) auto minmax(0,1fr)}
+}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&display=swap" rel="stylesheet">
 </head>
