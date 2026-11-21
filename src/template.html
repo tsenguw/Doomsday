@@ -1868,7 +1868,8 @@ function render(){
   const lg=$('#log');if(lg)lg.scrollTop=lg.scrollHeight;const h2=document.querySelector('.hand');if(h2)h2.scrollLeft=hs;
   tutHL();
   try{const nowMine=!!document.querySelector('.me.turn')&&!document.querySelector('.shade');
-    if(nowMine&&ui.wasMine===false){const f=document.createElement('div');f.className='turnflash';f.innerHTML='<span>輪到你了</span><small>這回合可以做 1 個動作</small>';document.body.appendChild(f);setTimeout(()=>f.remove(),1900);}
+    if(S&&S.log&&S.log.length<=1)ui.turnShown=false; // 新局重置
+    if(nowMine&&ui.wasMine===false&&!ui.turnShown){ui.turnShown=true;const f=document.createElement('div');f.className='turnflash';f.innerHTML='<span>輪到你了</span><small>這回合可以做 1 個動作</small>';document.body.appendChild(f);setTimeout(()=>f.remove(),1900);}
     if(document.querySelector('.game'))ui.wasMine=nowMine;
     const seen=ui.seenC||(ui.seenC=new Set()),nowC=new Set();
     document.querySelectorAll('.slots .card[data-c],.opp .chips .card[data-c]').forEach((el)=>{const k=el.closest('.slots')?'m':'o';const key=k+el.dataset.c;nowC.add(key);if(ui.seenInit&&!seen.has(key))el.classList.add('pop');});
