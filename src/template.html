@@ -1416,18 +1416,18 @@ function frame(cls,art,name,meta,desc,badge,o,attrs){
   o=o||{};
   return `<button class="card ${cls}${o.mini?' mini':''}${o.big?' big':''}${o.sel?' sel':''}${o.lock?' lock':''}${o.dim?' nouse':''}" ${attrs} title="${name}">`
     +`<span class="art">${art}</span><b>${o.star?'★ ':''}${name}</b>`+(o.mini?'':`<span class="meta">${meta}</span><span class="desc">${desc}</span>`)
-    +(o.need?'<span class="need">★ 你的勝利條件</span>':'')+(o.tag?`<span class="where">${esc(o.tag)}</span>`:'')+`<span class="badge">${badge}</span></button>`;
+    +(o.need?'<span class="need">★ 你的勝利條件</span>':'')+(o.tag?`<span class="where">${esc(o.tag)}</span>`:'')+(badge?`<span class="badge">${badge}</span>`:'')+`</button>`;
 }
 function cardHTML(cid,o){
   o=o||{};const c=C(cid),need=NEED(cid);
   const attrs=o.act?`data-a="${o.act}" data-c="${cid}"`:`data-a="detail" data-k="c" data-c="${cid}"`;
   const oo=Object.assign({need:need},o);
   if(c.k==='E')return frame('c'+facKey(c.role),ART.eq(c.name),c.name,c.role+'・'+G.TYPE[c.type],c.desc,c.type,oo,attrs);
-  return frame('M',ART.mg(c.fn),c.name,'功能卡',c.desc,'功',oo,attrs);
+  return frame('M',ART.mg(c.fn),c.name,'功能卡',c.desc,'',oo,attrs);
 }
 function chipHTML(x){const h=cardHTML(x.c,{mini:true,lock:x.lock});return x.lock?`<span class="lockwrap" title="橫放">${h}</span>`:h;}
 function roleCardHTML(r,o){const R=ROLES[r];return frame('c'+facKey(r),ART.rl(r),r,FAC[R.f].nation+'・'+R.sk,R.d,R.pw,o,`data-a="detail" data-k="r" data-id="${r}"`);}
-function eventCardHTML(id,o){const e=G.EV[id];return frame('V',ART.ev(id),e.name,'地標卡（事件）',e.desc,'事',o,`data-a="detail" data-k="e" data-id="${id}"`);}
+function eventCardHTML(id,o){const e=G.EV[id];return frame('V',ART.ev(id),e.name,'地標卡（事件）',e.desc,'',o,`data-a="detail" data-k="e" data-id="${id}"`);}
 const backHTML=()=>'<span class="card back mini" title="角色未揭露">？</span>';
 function roleLine(p,show){
   if(!show)return '<span class="dim">角色未揭露</span>';

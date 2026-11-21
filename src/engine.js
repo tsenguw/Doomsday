@@ -57,7 +57,7 @@ var G = (function () {
     ['gatherB', '資源蒐集・探索', 3, '抽資源牌庫兩張，選一張收回手牌，另一張洗回牌庫'],
     ['viewHand', '資源觀看', 3, '指定任一玩家，觀看其所有手牌'],
     ['swapEq', '資源交換', 6, '指定一名玩家與一種裝備（名稱或角色），對方手牌有就與你交換一張手牌裝備，沒有則無效'],
-    ['wind', '資源大風吹', 6, '指定手牌流向：所有人把手牌傳給上家／下家，或向上家／下家抽一張'],
+    ['wind', '資源大風吹', 6, '指定手牌流向：所有人把手牌傳給下家，或所有人把手牌傳給上家'],
     ['viewRole', '角色觀看', 3, '指定任一玩家，觀看其角色'],
     ['duel', '決鬥', 6, '以角色戰鬥指數決鬥，贏家從輸家面前拿 N 張裝備（N＝指數差）'],
     ['nullify', '無效', 6, '在別人發動功能卡或裝備技能時打出，使其無效'],
@@ -380,20 +380,11 @@ var G = (function () {
     rm(A, a[0]); A.push(p.m); B.push(a[0]);
     log(s, `${nm(s, p.pid)} 與 ${nm(s, p.t)} 交換了一張手牌裝備。`);
   };
-  MAGIC.wind = (s, pid) => ask(s, pid, 'choice', 'wind', { title: '資源大風吹：指定手牌流向。' + ringTxt(s, pid), opts: [{ id: 'pn', label: '所有人把手牌傳給下家' }, { id: 'pp', label: '所有人把手牌傳給上家' }, { id: 'dn', label: '所有人向下家抽一張' }, { id: 'dp', label: '所有人向上家抽一張' }] });
+  MAGIC.wind = (s, pid) => ask(s, pid, 'choice', 'wind', { title: '資源大風吹：指定手牌流向。' + ringTxt(s, pid), opts: [{ id: 'pn', label: '所有人把手牌傳給下家' }, { id: 'pp', label: '所有人把手牌傳給上家' }] });
   RESP.wind = (s, p, a) => {
     const n = s.players.length, hands = s.players.map((x) => x.hand);
-    if (a[0] === 'p') {
-      s.players.forEach((x, i) => { x.hand = hands[a === 'pn' ? prev(s, i) : next(s, i)]; });
-      log(s, `${nm(s, p.pid)} 發動資源大風吹：所有人把手牌傳給${a === 'pn' ? '下家' : '上家'}。`);
-    } else {
-      const got = [];
-      for (let i = 0; i < n; i++) { const from = hands[a === 'dn' ? next(s, i) : prev(s, i)]; got.push(from.length ? from[rnd(from.length)] : null); }
-      // 同時結算：先決定每人被抽走的牌
-      for (let i = 0; i < n; i++) { const from = hands[a === 'dn' ? next(s, i) : prev(s, i)]; if (got[i] != null) rm(from, got[i]); }
-      for (let i = 0; i < n; i++) if (got[i] != null) hands[i].push(got[i]);
-      log(s, `${nm(s, p.pid)} 發動資源大風吹：所有人向${a === 'dn' ? '下家' : '上家'}抽一張手牌。`);
-    }
+    s.players.forEach((x, i) => { x.hand = hands[a === 'pn' ? prev(s, i) : next(s, i)]; });
+    log(s, `${nm(s, p.pid)} 發動資源大風吹：所有人把手牌傳給${a === 'pn' ? '下家' : '上家'}。`);
   };
   function duel(s, a, b) {
     const pa = ROLES[s.players[a].role.n].pw, pb = ROLES[s.players[b].role.n].pw;
