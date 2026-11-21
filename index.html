@@ -1164,6 +1164,196 @@ button.card:hover{transform:none}
 .wpiles>*{justify-content:center;padding:6px 10px;border-radius:99px;font-size:12.5px;gap:5px}
 .wpiles svg{width:14px;height:14px}
 }
+
+/* ===================== v12：桌機三欄比例 18% / 64% / 18% ===================== */
+.rpanel{display:contents}
+@media(min-width:1240px){
+.game{grid-template-columns:minmax(232px,18%) minmax(0,1fr) minmax(244px,18%);grid-template-rows:auto minmax(0,1fr) auto;
+  grid-template-areas:"top top top" "left board right" "guide me me"}
+.game:not(:has(.guidebar)){grid-template-areas:"top top top" "left board right" "left me me"}
+/* 左欄：陣營＋玩家卡（緊湊） */
+.side.left{gap:8px;padding:10px 10px 8px;overflow:hidden}
+.side.left .opps{gap:6px;overflow-y:auto;flex:1 1 auto;min-height:0}
+.facbox{padding:9px 11px;gap:6px}
+.facbox .hd h2{font-size:19px}
+.facbox .emb{width:32px;height:32px}
+.pc{padding:6px 9px 7px;gap:4px}
+.pc-hd{gap:7px}
+.pc-crest{width:30px;height:30px}.pc-crest .emb{width:18px;height:18px}
+.pc-nm .nm{font-size:14.5px}
+.pc-role{font-size:12px}
+.pc-res{gap:10px}
+.pc .chips{gap:4px;padding-top:0}
+.pc .chips .card.mini{--mw:42px;--mh:54px}
+/* 軍師指引：移到左下，與操作區同高 */
+.guidebar{grid-area:guide;flex-direction:column;align-items:stretch;gap:8px;padding:12px;max-height:none;overflow-y:auto;
+  border-right:1px solid #000;border-left:0;border-bottom:0;border-top:1px solid var(--line);background:var(--stone-bg)}
+/* 中央地圖：填滿中間欄，允許長寬比在 1.5～2.1 之間微調，減少兩側留白 */
+.board{padding:8px 10px}
+.worldmap{aspect-ratio:auto;width:min(calc(100cqw - 4px),calc((100cqh - 4px) * 2.1));height:min(calc(100cqh - 4px),calc((100cqw - 4px) / 1.5))}
+/* 右欄：回合順序、戰報兩個完整面板 */
+.side.right{gap:10px;padding:10px;overflow:hidden;border-top:0}
+.rpanel{display:flex;flex-direction:column;gap:8px;min-height:0;padding:10px 10px 8px;border:1px solid #3a3631;border-radius:6px;
+  background:linear-gradient(180deg,#25221f,#1a1816);box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 0 0 1px #000,0 3px 10px rgba(0,0,0,.4)}
+.rpanel>.sect{margin:0}
+.rp-order{flex:0 0 auto}
+.rp-log{flex:1 1 auto}
+.rp-log .log{flex:1 1 auto;min-height:0}
+/* 底部：行動列獨立一列；下方角色／面前／手牌，卡牌放大 */
+.me{grid-template-columns:clamp(280px,20%,340px) 226px minmax(0,1fr);grid-template-areas:"acts acts acts" "role front hand";gap:8px 18px;padding:8px 16px 10px;border-top:1px solid var(--line)}
+.me .acts{padding-bottom:8px;border-bottom:1px solid rgba(176,138,69,.25)}
+.hand .card{flex-basis:144px;width:144px;min-height:206px}.hand .card .art{height:74px}
+.hand .card .desc{font-size:12.5px;line-height:1.5}
+.role>.card{min-height:206px}.role>.card .art{height:74px}
+.slots{--mw:68px;--mh:88px}
+}
+@media(min-width:1240px) and (max-height:960px){
+.hand .card{flex-basis:132px;width:132px;min-height:186px}.hand .card .art{height:62px}
+.hand .card .desc{font-size:12px;line-height:1.45}
+.slots{--mw:62px;--mh:78px}
+}
+@media(min-width:1240px) and (max-height:800px){
+.hand .card{flex-basis:122px;width:122px;min-height:168px}.hand .card .art{height:52px}
+.slots{--mw:56px;--mh:70px}
+.me{padding:6px 14px 8px;gap:6px 14px}
+}
+
+/* v12 補充：寬螢幕卡牌再放大；較窄時面前改 2 欄、角色欄縮窄，避免手牌重疊 */
+@media(min-width:1800px) and (min-height:1000px){
+.hand .card{flex-basis:156px;width:156px;min-height:220px}.hand .card .art{height:80px}
+.hand .card b{font-size:16px}
+}
+@media(min-width:1240px) and (max-width:1699px){
+.me{grid-template-columns:clamp(250px,17vw,280px) 150px minmax(0,1fr);gap:8px 14px}
+}
+/* 高度不足：左欄延伸到底，軍師指引移到右欄上方 */
+@media(min-width:1240px) and (max-height:999px){
+.game,.game:not(:has(.guidebar)){grid-template-rows:auto auto minmax(0,1fr) auto;grid-template-areas:"top top top" "left board guide" "left board right" "left me me"}
+.guidebar{border:0;border-left:1px solid #000;padding:10px 10px 0;max-height:32vh;gap:6px;background:var(--stone-bg)}
+.guidebar>*{flex:0 0 auto}
+.order .ord{padding:3px 8px}
+.rpanel{padding:8px 10px 6px;gap:6px}
+.side.right{padding-top:10px}
+.guidebar .guide p+p{display:none}
+
+.facbox{padding:7px 10px;gap:4px}.facbox .note{font-size:12px}
+}
+
+/* v12：玩家卡裝備縮圖與資源數同列，卡片更緊湊 */
+@media(min-width:1240px){
+.side.left .pc{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:6px}
+.side.left .pc>*{grid-column:1/-1}
+.side.left .pc>.pc-res{grid-column:1}
+.side.left .pc>.chips{grid-column:2;grid-row:2;justify-content:flex-end}
+.side.left .pc .chips,.side.left .pc .chips .card.mini{--mw:32px;--mh:42px}
+}
+
+@media(min-width:1240px){.rp-order{flex:0 0 auto}.rp-log{min-height:0}}
+@media(min-width:1240px) and (max-height:999px){.guidebar{max-height:22vh}}
+@media(min-width:1240px) and (max-height:820px){
+.guidebar{max-height:118px}
+.ord-c{display:none}
+.rpanel{padding:6px 8px 4px;gap:4px}
+.guidebar .steps{flex-wrap:nowrap;overflow-x:auto}
+.guidebar .steps>*{white-space:nowrap}
+.order .ord{padding:2px 6px;font-size:13px}
+.ord-st{font-size:10.5px;white-space:nowrap}
+}
+@media(min-width:1240px) and (max-width:1439px){.ord-st{white-space:nowrap}.order .ord{gap:4px}}
+
+/* ===================== v13：依參考圖重排桌機 ===================== */
+.rcard,.actg{display:none}
+.stat.st-doom b i{font-style:normal;font-size:.62em;color:var(--dim);font-weight:500}
+.stat.st-doom.now b{color:#ff8a6a;text-shadow:0 0 10px rgba(255,90,60,.45)}
+.stat.st-doom.off b{color:var(--dim);font-size:15px}
+@media(min-width:1240px){
+.game,.game:not(:has(.guidebar)){grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"top top top" "left board right" "left me me"}
+.guidebar{display:none!important}
+/* 行動列：行動點＋一行指引＋按鈕（靠右） */
+.me .acts{align-items:center}
+.me .acts>*{order:2}
+.me .acts>.ap{order:0}
+.me .acts>.actg{order:1}
+.actg{display:block;flex:1 1 200px;min-width:160px;position:relative;align-self:stretch}
+.actg .guide{display:flex;flex-direction:column;justify-content:center;height:100%;gap:2px;padding:0;background:none;border:0;box-shadow:none;margin:0}
+.actg .guide .ttl,.actg .guide .steps{display:none}
+.actg .guide p{margin:0;font-size:13.5px;line-height:1.45;color:var(--gold-tx);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.actg .guide p+p{display:none}
+.actg:hover .guide,.actg:focus-within .guide{position:absolute;z-index:60;left:-8px;bottom:calc(100% + 6px);top:auto;height:auto;width:min(520px,70vw);padding:12px 14px;gap:6px;
+  background:linear-gradient(180deg,#2a2622,#1c1a17);border:1px solid var(--gold);border-radius:6px;box-shadow:0 12px 30px rgba(0,0,0,.7)}
+.actg:hover .guide .ttl,.actg:hover .guide .steps{display:flex}
+.actg:hover .guide p{-webkit-line-clamp:unset;display:block;color:var(--ink)}
+.actg:hover .guide p+p{display:block}
+/* 底部：角色卡｜角色資訊＋勝利條件｜面前 2 欄｜手牌 */
+.me{grid-template-columns:clamp(340px,24%,400px) 150px minmax(0,1fr);grid-template-areas:"acts acts acts" "role front hand";gap:8px 16px}
+.rolebox{display:grid;grid-template-columns:clamp(132px,40%,150px) minmax(0,1fr);grid-template-rows:auto auto 1fr;grid-template-areas:"sect sect" "card plate" "card win";gap:6px 10px;align-content:start}
+.rolebox>.sect{grid-area:sect}
+.rcard{display:block;grid-area:card;min-width:0}
+.rcard>.card{width:100%;flex:none;margin:0}
+.rolebox>.rplate{grid-area:plate;grid-template-columns:1fr;padding:8px 10px}
+.rolebox>.rplate .rp-art{display:none}
+.rolebox>.rplate .rp-sk p{display:none}
+.rolebox>.wincard{grid-area:win;align-self:stretch}
+.slots{width:auto}
+.frontz{min-width:0}
+}
+@media(min-width:1240px) and (max-width:1499px){
+.me{grid-template-columns:clamp(300px,25%,340px) 136px minmax(0,1fr);gap:8px 12px}
+.slots{--mw:60px;--mh:76px}
+.rolebox{grid-template-columns:118px minmax(0,1fr)}
+}
+
+/* 玩家卡：「角色卡」按鈕放在名字旁 */
+.pc-nm .pc-rc{flex:none;margin-left:4px;padding:1px 9px;font-size:11.5px;line-height:1.5}
+.pc-nm:has(.pc-rc){justify-content:flex-start}
+.pc-nm:has(.pc-rc) .nm{flex:0 1 auto!important;width:auto;min-width:0}
+.pc-nm .pc-st{margin-left:auto}
+
+/* 左側玩家區加寬至約 25% */
+@media(min-width:1240px){.game,.game:not(:has(.guidebar)){grid-template-columns:minmax(280px,25%) minmax(0,1fr) minmax(244px,18%)}}
+
+@media(min-width:1240px){
+.side.left .pc .chips{max-width:none;gap:5px;flex-wrap:wrap;overflow:visible}
+.side.left .pc .chips,.side.left .pc .chips .card.mini{--mw:46px;--mh:60px}
+.side.left .pc-nm .nm{font-size:15.5px}
+.side.left .pc-role{font-size:12.5px}
+.actg{flex:1 1 120px;min-width:110px}
+}
+@media(min-width:1240px) and (max-width:1699px){
+.me{grid-template-columns:272px 126px minmax(0,1fr);gap:8px 12px;padding:8px 12px 10px}
+.rolebox{grid-template-columns:104px minmax(0,1fr);gap:6px 8px}
+.slots{--mw:56px;--mh:72px}
+.me .acts{gap:6px}
+.me .acts .btn{padding-left:10px;padding-right:10px}
+.hand .card{flex-basis:118px;width:118px}
+}
+@media(min-width:1240px) and (max-width:1439px){
+.side.left .pc .chips,.side.left .pc .chips .card.mini{--mw:38px;--mh:50px}
+.actg .guide p{font-size:12.5px}
+}
+
+@media(min-width:1240px) and (max-width:1439px){
+.me .acts{gap:5px;flex-wrap:nowrap}
+.me .acts .btn{padding:7px 8px;font-size:13px;letter-spacing:.02em;white-space:nowrap}
+.me .acts .btn .cost{margin-left:4px;padding:0 4px;font-size:11px}
+.actg{flex:1 1 0;min-width:80px}
+}
+
+/* 全螢幕按鈕 */
+.fsbtn{display:inline-flex;align-items:center;gap:5px}
+.fsbtn .fsi{width:14px;height:14px;flex:none}
+@media(max-width:860px){.fsbtn{font-size:0;gap:0;padding-left:9px;padding-right:9px}.fsbtn .fsi{width:16px;height:16px}}
+/* v14：桌機三欄比例 20% / 62% / 18%（依實測調整） */
+@media(min-width:1240px){.game,.game:not(:has(.guidebar)){grid-template-columns:clamp(250px,20%,400px) minmax(0,1fr) clamp(244px,18%,340px)}}
+@media(min-width:1240px) and (max-height:999px){
+.side.left{gap:6px;padding-top:8px}
+.side.left .opps{gap:5px}
+.side.left .pc{padding:5px 9px 5px;row-gap:3px}
+.side.left .pc-crest{width:28px;height:28px}
+.facbox{padding:7px 10px;gap:4px}
+.facbox .hd h2{font-size:18px}
+.facbox .note{font-size:12px}
+}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&display=swap" rel="stylesheet">
 </head>
@@ -2014,6 +2204,20 @@ let tut=null;
 let mode='home',local=false,net=null,S=null,V=0,lastS='',chain=Promise.resolve(),botT=null,toastT=null;
 let myName=store.get('ew-name')||'';
 let NEED=()=>false;
+// ---------- 全螢幕 ----------
+const ICON_FS='<svg class="fsi" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_FSX='<svg class="fsi" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 3v5H3M17 8h-5V3M12 17v-5h5M3 12h5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const fsEl=()=>document.fullscreenElement||document.webkitFullscreenElement||null;
+const fsOn=()=>!!fsEl();
+const fsOK=()=>!!(document.fullscreenEnabled||document.webkitFullscreenEnabled);
+function fsToggle(){
+  const d=document,el=d.documentElement;
+  try{
+    if(fsOn()){(d.exitFullscreen||d.webkitExitFullscreen).call(d);}
+    else{const r=(el.requestFullscreen||el.webkitRequestFullscreen).call(el,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>toast('瀏覽器不允許切換全螢幕'));}
+  }catch(e){toast('瀏覽器不允許切換全螢幕');}
+}
+['fullscreenchange','webkitfullscreenchange'].forEach((ev)=>document.addEventListener(ev,()=>{try{render();}catch(e){}}));
 const ui={guide:store.get('ew-guide')!=='0',sel:null,give:false,psel:[],pkey:'',detail:null,rules:false,pile:false,practice:3,doom:store.get('ew-doom')==='1',codeIn:'',busy:false,loadNote:''};
 try{const h=(location.hash||'').match(/^#room-(\d{4})$/);if(h)ui.codeIn=h[1];}catch(e){}
 
@@ -2254,7 +2458,7 @@ function tutSync(){
   if(tut&&TUT_STEPS[tut.i].done)store.set('ew-tut','1');
 }
 function tutGate(a,cid){
-  if(['rules','gallery','pile','detail','close','leave','tutnext','tutpractice','guide','hideover'].includes(a))return true;
+  if(['rules','gallery','pile','detail','close','leave','tutnext','tutpractice','guide','hideover','fs'].includes(a))return true;
   const st=TUT_STEPS[tut.i];
   if(st.done)return true;
   if(st.info||st.wait){toast(st.info?'先讀完提示，再按「下一步」':'請稍候，對手還在行動');return false;}
@@ -2380,8 +2584,7 @@ function worldMapHTML(){
   if(S.opts&&S.opts.doom){const D=S.opts.doom,cy=S.cycle||1;if(cy>=D.from){doomTtl='末日已降臨';doomBig=D.sec;doomUnit='秒';}else{doomTtl='世界末日倒數';doomBig=D.from-cy;doomUnit='輪';}}
   else{doomTtl='末日倒數';doomBig='—';doomUnit='未開啟';}
   const ev=S.lastEvent;
-  const hud=`<div class="whudbar"><div class="whud wh-round">${ICON.glass}<span>第 <b>${S.cycle||1}</b> 輪</span></div>
-    <div class="whud wh-doom${S.opts&&S.opts.doom&&(S.cycle||1)>=S.opts.doom.from?' now':''}"><small>${doomTtl}</small><b>${doomBig}</b><i>${doomUnit}</i></div>
+  const hud=`<div class="whudbar">
     ${ev?`<button class="whud wh-ev${fresh?' fresh':''}" data-a="lmopen" data-id="${ev}"><span class="ex">!</span><span>地標事件</span><b>${esc(G.EV[ev].name)}</b><span class="go">›</span></button>`
       :'<div class="whud wh-ev"><span class="ex">!</span><span>地標事件</span><b class="dim">尚未觸發</b></div>'}</div>`;
   const piles=`<div class="wpiles"><span title="資源牌庫：剩餘張數">${ICON.crate}資源牌庫<b>${S.deck.length}</b></span><button data-a="pile" title="查看棄牌堆">${ICON.fire}棄牌堆<b>${S.discard.length}</b></button><span title="地標牌庫：剩餘張數">${ICON.tower}地標牌庫<b>${S.evDeck.length}</b></span><span title="角色牌庫：轉生時抽取">${ICON.mask}角色牌庫<b>${S.roleDeck.length}</b></span></div>`;
@@ -2426,9 +2629,9 @@ function gameHTML(){
   const tmr=(S.opts&&S.opts.doom&&S.phase==='play')?'<span id="tmr" class="pill tmr" style="display:none"></span>':'';
   const bar=`<header class="bar"><h1>末日爭奪戰</h1>
     <div class="stat"><small>${net?'房號':'模式'}</small><b>${net?net.code:'單機'}</b></div>
-    <div class="stat"><small>總手數</small><b>${S.round}</b></div>${tmr}<span class="sp"></span>
+    <div class="stat"><small>總手數</small><b>${S.round}</b></div><div class="stat st-round"><small>目前輪數</small><b>${S.cycle||1}</b></div>${(()=>{const D=S.opts&&S.opts.doom,cy=S.cycle||1;return D?(cy>=D.from?`<div class="stat st-doom now"><small>末日倒數</small><b>已降臨</b></div>`:`<div class="stat st-doom"><small>末日倒數</small><b>${D.from-cy}<i> 輪</i></b></div>`):'<div class="stat st-doom off"><small>末日倒數</small><b>未開啟</b></div>';})()}${tmr}<span class="sp"></span>
     <span class="turnbadge${myTurn?' on':''}">${over?'遊戲結束':myTurn?'你的回合':'輪到 '+esc(S.players[S.turn].name)}</span>
-    <span class="tools"><button class="btn sm" data-a="guide" aria-pressed="${ui.guide}">指引：${ui.guide?'開':'關'}</button><button class="btn sm" data-a="rules">規則</button><button class="btn sm ghost" data-a="leave">離開</button></span></header>`;
+    <span class="tools"><button class="btn sm" data-a="guide" aria-pressed="${ui.guide}">指引：${ui.guide?'開':'關'}</button><button class="btn sm" data-a="rules">規則</button>${fsOK()?`<button class="btn sm fsbtn" data-a="fs" aria-pressed="${fsOn()}" title="${fsOn()?'離開全螢幕':'切換為全螢幕'}">${fsOn()?ICON_FSX:ICON_FS}${fsOn()?'結束全螢幕':'全螢幕'}</button>`:''}<button class="btn sm ghost" data-a="leave">離開</button></span></header>`;
 
   // ── 左：我的陣營＋其他玩家狀態 ──
   let facbox='';
@@ -2442,9 +2645,9 @@ function gameHTML(){
   const opps=order.map((i)=>{const p=S.players[i],show=p.role.rev||over,fk=show?facKey(p.role.n):'',st=pst(i),off=!local&&net&&!p.bot&&!online(p.id);
     return `<div class="opp pc st-${st}${off?' off':''}"${fk?` style="--fc:var(--${fk})"`:''}>
       <div class="pc-hd"><span class="pc-crest">${emb(show?fk:'x',28)}</span>
-        <div class="pc-id"><div class="pc-nm"><span class="nm">${esc(p.name)}</span><span class="pc-st">${PST[st]}</span></div>
+        <div class="pc-id"><div class="pc-nm"><span class="nm">${esc(p.name)}</span>${show?`<button class="btn sm ghost pc-rc" data-a="detail" data-k="r" data-id="${p.role.n}">角色卡</button>`:''}<span class="pc-st">${PST[st]}</span></div>
         <div class="pc-role">${seatTag(i)}${p.bot?'<span class="pc-tag">電腦</span>':off?'<span class="pc-tag off">離線</span>':''}${show?`<b class="tag-${fk}">${p.role.n}</b>・${FAC[ROLES[p.role.n].f].nation}`:'<span class="dim">角色未揭露</span>'}</div></div></div>
-      <div class="pc-res"><span data-tip="手牌張數">${ICON.hand}<b>${p.hand.length}</b></span><span data-tip="面前裝備（滿 5 張）">${ICON.front}<b>${p.front.length}</b>${pips(p.front.length)}</span>${show?`<button class="btn sm ghost" data-a="detail" data-k="r" data-id="${p.role.n}">角色卡</button>`:''}</div>
+      <div class="pc-res"><span data-tip="手牌張數">${ICON.hand}<b>${p.hand.length}</b></span></div>
       ${p.front.length?`<div class="chips">${p.front.map(chipHTML).join('')}</div>`:''}
       ${!local&&isHost()&&!over&&p.id.indexOf('bot')!==0?`<div><button class="btn sm" data-a="tobot" data-p="${i}">${p.bot?'交還給玩家':'交給電腦代打'}</button></div>`:''}</div>`;}).join('');
   const claim=(!local&&net&&me<0)?`<div class="wait" style="border-radius:8px;text-align:left">你目前不在這場牌局的座位上。若你是中途斷線或換了裝置，可接手一位離線玩家的座位：${S.players.map((p,i)=>p.bot?'':`<button class="btn sm" data-a="claim" data-p="${i}" ${online(p.id)?'disabled':''}>${esc(p.name)}${online(p.id)?'（線上）':'（離線）'}</button>`).join(' ')}</div>`:'';
@@ -2467,7 +2670,7 @@ function gameHTML(){
   // ── 右：回合順序＋戰報 ──
   const st0=me<0?0:me;
   const orderHTML=[...Array(nP).keys()].map((k)=>{const j=(st0+k)%nP,s=pst(j),p=S.players[j];return `<div class="ord st-${s}${j===me?' mine':''}"><span class="ord-i">${s==='done'?'✓':s==='now'?'▶':k+1}</span><span class="ord-nm">${j===me?'你':esc(p.name)}</span>${seatTag(j)}<span class="ord-st">${s==='now'?'行動中':s==='done'?'已行動':''}</span><span class="ord-c" data-tip="手牌／面前">${p.hand.length}・${p.front.length}</span></div>`;}).join('');
-  const right=`<aside class="side right"><div class="sect">回合順序 <span class="sect-r">第 ${S.cycle||1} 輪</span></div><div class="order">${orderHTML}</div><div class="sect">戰報</div><div class="log" id="log">${S.log.map((l)=>{const k=logK(l);return `<div class="${k}"><i>${LOGI[k]}</i><span>${esc(l.replace(/^[—─-]+\s*|\s*[—─-]+$/g,''))}</span></div>`;}).join('')}</div></aside>`;
+  const right=`<aside class="side right"><div class="rpanel rp-order"><div class="sect">回合順序 <span class="sect-r">第 ${S.cycle||1} 輪</span></div><div class="order">${orderHTML}</div></div><div class="rpanel rp-log"><div class="sect">戰報</div><div class="log" id="log">${S.log.map((l)=>{const k=logK(l);return `<div class="${k}"><i>${LOGI[k]}</i><span>${esc(l.replace(/^[—─-]+\s*|\s*[—─-]+$/g,''))}</span></div>`;}).join('')}</div></div></aside>`;
 
   // ── 下方：我的角色、面前裝備、手牌、行動 ──
   let meHTML='',roleHTML='';
@@ -2494,18 +2697,19 @@ function gameHTML(){
     else acts='<span class="dim small">遊戲結束</span>';
     const slots=mine.front.map(chipHTML).join('')+Array.from({length:Math.max(0,5-mine.front.length)},()=>'<span class="slot">空位</span>').join('');
     const rc=FAC[R.f].key,rcol={r:['#8F2525','#c4483d'],b:['#8d97a3','#c3cbd5'],g:['#526B46','#7fa06f']}[rc];
-    roleHTML=`<div class="rolebox"><div class="sect">你的角色</div>
+    roleHTML=`<div class="rolebox"><div class="sect">你的角色</div><div class="role rcard">${roleCardHTML(mine.role.n,{})}</div>
       <div class="rplate" style="--fc:var(--${k})"><button class="rp-art art" style="--ac:${rcol[0]};--acl:${rcol[1]}" data-a="detail" data-k="r" data-id="${mine.role.n}" data-tip="查看角色卡">${ART.rl(mine.role.n)}</button>
         <div class="rp-txt"><div class="rp-nm"><span class="tag-${k}">${mine.role.n}</span><span class="rp-pw" data-tip="戰鬥指數：決鬥時比大小">⚔ ${R.pw}</span></div>
         <div class="rp-sub">${emb(k,14)}${FAC[R.f].nation}・${mine.role.rev?'身分已揭露':'身分隱藏中'}</div>
         <div class="rp-sk"><b>技能「${R.sk}」</b><span class="rp-skst ${R.passive?'pas':mine.role.used?'used':'ok'}">${R.passive?'被動':mine.role.used?'已使用':'可使用'}</span><p>${R.d}</p></div></div></div>
       <div class="wincard"><h4>個人勝利・面前同時擁有</h4><ul>${solo.map((x)=>`<li class="${x.ok?'ok':''}">${x.t}</li>`).join('')}</ul></div></div>`;
     meHTML=`<section class="me${myTurn?' turn':''}">${roleHTML}
-      <div class="acts">${acts}</div>
+      <div class="acts">${acts}<!--ACTG--></div>
       <div class="zone frontz"><div class="zh">你的面前 <b>${mine.front.length}／5</b></div><div class="slots">${slots}</div></div>
       <div class="zone handz"><div class="zh">手牌 <b>${mine.hand.length} 張</b></div><div class="cards hand">${mine.hand.map((c)=>cardHTML(c,{act:'sel',sel:ui.sel===c})).join('')}</div></div></section>`;
   }else meHTML='<section class="me"><div class="acts"><span class="dim">你正在觀戰。</span></div></section>';
 const gHTML=guideHTML(me,mine,myTurn,idle),wHTML=wait?`<span class="wait">${wait}${a!==me&&ui.loadNote?esc(ui.loadNote):''}</span>`:'';
+  meHTML=meHTML.replace('<!--ACTG-->',gHTML?`<div class="actg">${gHTML}</div>`:'');
   const guideBar=(gHTML||wHTML)?`<div class="guidebar">${wHTML}${gHTML}</div>`:'';
     return `<div class="game">${bar}${guideBar}<aside class="side left">${facbox}<div class="sect">其他玩家</div><section class="opps">${opps}</section>${claim}</aside>
     <main class="board">${worldMapHTML()}</main>${right}${meHTML}</div>${lmModalHTML(me,mine,myTurn,idle)}`;
@@ -2733,6 +2937,7 @@ document.addEventListener('click',(e)=>{
   if(a==='close'){if(el.classList.contains('shade')&&e.target!==el)return;if(ui.detail&&(ui.gallery||ui.pile)){ui.detail=null;return render();}ui.detail=null;ui.rules=false;ui.pile=false;ui.gallery=false;return render();}
   switch(a){
     case 'rules':ui.rules=true;break;
+    case 'fs':fsToggle();break;
     case 'guide':ui.guide=!ui.guide;store.set('ew-guide',ui.guide?'1':'0');break;
     case 'detail':ui.detail={k:el.dataset.k||'c',id:el.dataset.k&&el.dataset.k!=='c'?el.dataset.id:cid};break;
     case 'gallery':ui.gallery=true;ui.rules=false;break;
