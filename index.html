@@ -1130,6 +1130,26 @@ button.card:hover{transform:none}
 .mkt>.cards:first-of-type .card{flex-basis:132px;width:132px}
 }
 
+
+/* 開關（末日倒數）：暗鐵軌道＋古金圓鈕；開啟時軌道燃起暗紅餘燼 */
+.switch{flex-direction:row!important;align-items:center;gap:10px!important;cursor:pointer;color:var(--ink)!important;font-size:14px;user-select:none;-webkit-tap-highlight-color:transparent}
+.switch input{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.sw-track{position:relative;flex:none;width:62px;height:30px;border-radius:15px;background:linear-gradient(180deg,#141210,#26221e);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.8),inset 0 0 0 1px #000,0 0 0 1px #5c574e,0 1px 0 rgba(255,255,255,.06);transition:background .25s,box-shadow .25s}
+.sw-knob{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#f3dca0,#c9a35a 45%,#7a5c27 100%);box-shadow:0 0 0 1px #2a1d0c,0 2px 4px rgba(0,0,0,.7),inset 0 -2px 3px rgba(60,40,10,.5),inset 0 1px 1px rgba(255,245,220,.7);
+  transition:transform .22s cubic-bezier(.3,1.4,.5,1)}
+.sw-knob::after{content:"";position:absolute;inset:7px;border-radius:50%;border:1.5px solid rgba(60,40,10,.55)}
+.sw-on,.sw-off{position:absolute;top:0;line-height:30px;font:700 11px/30px var(--body);letter-spacing:.05em;transition:opacity .2s}
+.sw-on{left:10px;color:#ffd9b8;opacity:0}.sw-off{right:10px;color:#8f8676}
+.switch input:checked+.sw-track{background:linear-gradient(180deg,#5a1610,#8F2525);box-shadow:inset 0 2px 5px rgba(0,0,0,.55),inset 0 0 0 1px #2a0806,0 0 0 1px #c4452b,0 0 12px rgba(224,100,42,.45)}
+.switch input:checked+.sw-track .sw-knob{transform:translateX(32px)}
+.switch input:checked+.sw-track .sw-on{opacity:1}.switch input:checked+.sw-track .sw-off{opacity:0}
+.switch input:focus-visible+.sw-track{outline:2px solid var(--gold-hi);outline-offset:3px}
+.switch:hover input:not(:disabled)+.sw-track{box-shadow:inset 0 2px 5px rgba(0,0,0,.8),inset 0 0 0 1px #000,0 0 0 1px var(--gold)}
+.switch:hover input:checked:not(:disabled)+.sw-track{box-shadow:inset 0 2px 5px rgba(0,0,0,.55),0 0 0 1px #ff8a4a,0 0 14px rgba(224,100,42,.6)}
+.switch:has(input:disabled){cursor:not-allowed;opacity:.55}
+.sw-lbl{font-weight:600}
 /* 開場前導短片（約 10 秒，可略過） */
 #intro{position:fixed;inset:0;z-index:200;background:#07060b;color:#efe4cc;overflow:hidden;font-family:var(--display);animation:introOut .4s ease 9.4s forwards}
 #intro .sc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vh;opacity:0;padding:0 8vw;text-align:center}
@@ -2328,7 +2348,7 @@ function homeHTML(){
   <div class="homegrid">
   <div class="panel wide"><label for="nm">你的暱稱<input type="text" id="nm" maxlength="12" value="${esc(myName)}" placeholder="最多 12 個字"></label></div>
   <div class="panel"><h2>新手教學${store.get('ew-tut')==='1'?'':' <span class="hint">建議先看</span>'}</h2><p class="dim small" style="margin:0">跟著提示親手完成一次個人勝利，約 3 分鐘，不需連線。</p><div><button class="btn pri" data-a="tutorial">開始教學</button></div></div>
-  <div class="panel"><h2>單機練習</h2><div class="row"><label for="pr">電腦對手<select id="pr">${[3,4,5].map((n)=>`<option value="${n}" ${n===ui.practice?'selected':''}>${n} 位</option>`).join('')}</select></label><label><input type="checkbox" id="pdoom" ${ui.doom?'checked':''}> 末日倒數</label></div>
+  <div class="panel"><h2>單機練習</h2><div class="row"><label for="pr">電腦對手<select id="pr">${[3,4,5].map((n)=>`<option value="${n}" ${n===ui.practice?'selected':''}>${n} 位</option>`).join('')}</select></label><label class="switch"><input type="checkbox" role="switch" id="pdoom" ${ui.doom?'checked':''}><span class="sw-track" aria-hidden="true"><span class="sw-on">開</span><span class="sw-off">關</span><span class="sw-knob"></span></span><span class="sw-lbl">末日倒數</span></label></div>
     <div><button class="btn" data-a="local">開始練習</button></div></div>
   <div class="panel wide"><h2>連線對戰</h2>
     ${!capReady?'<p class="dim small" style="margin:0">連線功能準備中…</p>':on?(canWrite===false?'<p class="hint" style="margin:0">你目前對這個頁面只有檢視權限，無法建立或加入房間。請頁面擁有者把你的分享權限調整為可參與／可編輯。</p>':''):`<p class="hint" style="margin:0">${esc(netErr||'這個畫面無法使用連線功能。')}仍可單機練習。</p>`}
@@ -2355,7 +2375,7 @@ function lobbyHTML(){
   <div class="panel"><h2>設定${host?'':'（由房主決定）'}</h2><div class="row">
     <label for="ob">電腦玩家<select id="ob" ${host?'':'disabled'}>${opts.map((n)=>`<option value="${n}" ${n===cur?'selected':''}>${n} 位</option>`).join('')}</select></label>
     <span class="hint">目前 ${humans} 位真人，電腦可選 ${lo}${hi>lo?'–'+hi:''} 位（真人＋電腦需 4–6 人）。</span>
-  </div><div class="row" style="margin-top:8px"><label><input type="checkbox" id="odoom" ${d.doom?'checked':''} ${host?'':'disabled'}> 末日倒數</label><span class="hint">限制遊戲長度（前 8 輪不限時；第 9 輪起每位玩家只有 20 秒思考時間，時間到強制換下一位；沒有輪數上限）</span></div></div>
+  </div><div class="row" style="margin-top:8px"><label class="switch"><input type="checkbox" role="switch" id="odoom" ${d.doom?'checked':''} ${host?'':'disabled'}><span class="sw-track" aria-hidden="true"><span class="sw-on">開</span><span class="sw-off">關</span><span class="sw-knob"></span></span><span class="sw-lbl">末日倒數</span></label><span class="hint">限制遊戲長度（前 8 輪不限時；第 9 輪起每位玩家只有 20 秒思考時間，時間到強制換下一位；沒有輪數上限）</span></div></div>
   <div class="row">${host?`<button class="btn pri" data-a="start" ${total>=4&&total<=6?'':'disabled'}>開始遊戲</button>`:'<span class="dim">等待房主開始…</span>'}
     <button class="btn" data-a="rules">遊戲規則</button><button class="btn" data-a="leave">離開房間</button>
     ${total<4?'<span class="hint">至少需要 4 位玩家，可用電腦玩家補滿。</span>':''}${total>6?'<span class="hint">最多 6 位玩家。</span>':''}</div></div>`;
