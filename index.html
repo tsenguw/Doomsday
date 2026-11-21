@@ -2912,11 +2912,16 @@ function render(){
   const app=$('#app');let h;
   if(mode==='home')h=homeHTML();else if(mode==='lobby'||!S)h=net?lobbyHTML():homeHTML();else h=gameHTML()+promptHTML()+overHTML();
   const ae=document.activeElement,keep=ae&&ae.id&&(ae.tagName==='INPUT')?{id:ae.id,v:ae.value,s:ae.selectionStart}:null;
-  const hand=document.querySelector('.hand'),hs=hand?hand.scrollLeft:0;
+  // 保留捲動位置：整頁與各捲動區塊（重繪不可把畫面拉回頂端）
+  const wx=window.scrollX,wy=window.scrollY,scr=[];
+  app.querySelectorAll('*').forEach((el)=>{if(el.scrollTop||el.scrollLeft){const path=[];for(let n=el;n&&n!==app;n=n.parentElement)path.push(Array.prototype.indexOf.call(n.parentElement.children,n));scr.push({path:path.join('/'),top:el.scrollTop,left:el.scrollLeft,end:el.id==='log'&&el.scrollHeight-el.clientHeight-el.scrollTop<40});}});
+  const lg0=$('#log'),logEnd=!lg0||lg0.scrollHeight-lg0.clientHeight-lg0.scrollTop<40;
   if(tut&&mode==='game'&&S)tutSync();
   app.innerHTML=h+detailHTML()+rulesHTML()+tutHTML();
   if(keep){const el=document.getElementById(keep.id);if(el){el.value=keep.v;el.focus();try{el.setSelectionRange(keep.s,keep.s)}catch(e){}}}
-  const lg=$('#log');if(lg)lg.scrollTop=lg.scrollHeight;const h2=document.querySelector('.hand');if(h2)h2.scrollLeft=hs;
+  scr.forEach((s)=>{let el=app;const ix=s.path.split('/').reverse();for(const i of ix){el=el&&el.children[+i];if(!el)break;}if(el){el.scrollTop=s.top;el.scrollLeft=s.left;}});
+  const lg=$('#log');if(lg&&logEnd)lg.scrollTop=lg.scrollHeight; // 戰報：原本在底部才跟著新訊息；往上翻舊紀錄時不跳走
+  if(window.scrollX!==wx||window.scrollY!==wy)window.scrollTo({left:wx,top:wy,behavior:'instant'});
   tutHL();
   try{const nowMine=!!document.querySelector('.me.turn')&&!document.querySelector('.shade');
     if(S&&S.log&&S.log.length<=1)ui.turnShown=false; // 新局重置
