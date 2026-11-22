@@ -1437,6 +1437,12 @@ button.card:hover{transform:none}
 @media(min-width:861px) and (max-width:1499px){.mkt{--mcw:136px}}
 @media(min-width:861px) and (max-width:1399px){.mkt{--mcw:128px}}
 @media(min-width:861px) and (max-width:1300px){.mkt{--mcw:118px}}
+
+/* v23：地圖地標名牌——圖示完整顯示為圓形徽章，不被名牌裁切 */
+.wtag{clip-path:none!important;border-radius:.55cqw}
+.wmed,.wmed.art{overflow:hidden;border-radius:50%;background:radial-gradient(circle at 40% 35%,#4a3a26,#1b140d);box-shadow:0 0 0 .18cqw #b8935a,0 0 0 .3cqw #2a1d10,0 .2cqw .5cqw rgba(0,0,0,.6)}
+.wmed svg,.wmed.art svg{width:74%!important;height:74%!important}
+.wmed:not(.art) svg{width:70%!important;height:70%!important}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&display=swap" rel="stylesheet">
 </head>
