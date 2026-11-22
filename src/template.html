@@ -1399,7 +1399,7 @@ button.card:hover{transform:none}
 /* v18：手牌加寬，5 張剛好填滿手牌區（最寬 190px） */
 @media(min-width:861px){
 .hand{gap:8px}
-.hand .card{flex:0 1 calc((100% - 4 * 8px) / 5);width:calc((100% - 4 * 8px) / 5);max-width:190px;min-width:112px}
+.me .hand .card{flex:0 1 calc((100% - 4 * 8px) / 5);width:calc((100% - 4 * 8px) / 5);max-width:190px;min-width:112px}
 }
 
 /* v19：勝利條件卡依內容高度，不再拉長到底 */
@@ -1410,10 +1410,10 @@ button.card:hover{transform:none}
 .me{--cw:150px}
 .rolebox{grid-template-columns:var(--cw) minmax(0,1fr)!important}
 .role>.card,.rolebox .role>.card{width:var(--cw)!important;flex-basis:var(--cw)!important}
-.hand .card{flex:0 0 var(--cw)!important;width:var(--cw)!important;max-width:none!important;min-width:0!important}
+.me .hand .card{flex:0 0 var(--cw)!important;width:var(--cw)!important;max-width:none!important;min-width:0!important}
 }
 @media(min-width:861px) and (max-width:1499px){.me{--cw:136px}}
-.hand .card .desc,.role>.card .desc{padding-bottom:26px}
+.me .hand .card .desc,.role>.card .desc{padding-bottom:26px}
 @media(min-width:861px) and (max-width:1399px){.me{--cw:128px}}
 @media(min-width:861px) and (max-width:1300px){.me{--cw:118px}}
 
@@ -1425,6 +1425,18 @@ button.card:hover{transform:none}
 .wpiles .mkbtn small{font-size:11.5px;font-weight:500;letter-spacing:0;opacity:.8}
 .wpiles .mkbtn i{font-style:normal;font-size:18px;line-height:1}
 }
+
+/* v22：交易市集視窗——市集卡與手牌一律同寬同高（寬度與主畫面手牌一致），不被視窗高度壓縮 */
+@media(min-width:861px){
+.mkt{--mcw:150px;overflow-y:auto}
+.mkt .cards{flex:0 0 auto;overflow-y:visible;align-items:flex-start;padding:12px 4px 6px}
+.mkt .cards .card,.mkt .cards.hand .card{flex:0 0 var(--mcw)!important;width:var(--mcw)!important;max-width:none!important;min-width:0!important;height:230px!important;min-height:230px!important}
+.mkt .cards .card .art{height:62px!important;flex:0 0 62px}
+.mkt .cards .card .desc{padding-bottom:26px}
+}
+@media(min-width:861px) and (max-width:1499px){.mkt{--mcw:136px}}
+@media(min-width:861px) and (max-width:1399px){.mkt{--mcw:128px}}
+@media(min-width:861px) and (max-width:1300px){.mkt{--mcw:118px}}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&display=swap" rel="stylesheet">
 </head>
