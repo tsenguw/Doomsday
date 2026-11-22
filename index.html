@@ -1456,6 +1456,26 @@ button.card:hover{transform:none}
 .wlm.st-done::after{display:none}
 .wflag{bottom:calc(40% + 3px)!important}
 .wh-ev{right:1.6%;top:1.8%;width:31.9%;height:6%}
+
+/* v25：交易市集改用金色光暈外框（取代「交易」小標）；地標事件列字體隨地圖大小縮放 */
+.wflag.trade{display:none!important}
+.wlm.st-trade .wrow::after{inset:-2px;border-radius:.6cqw;box-shadow:0 0 0 .14cqw #e2b550,0 0 0 .3cqw rgba(40,26,10,.85),0 0 1.4cqw .2cqw rgba(226,181,80,.55);animation:wTrade 2.6s ease-in-out infinite}
+@keyframes wTrade{50%{box-shadow:0 0 0 .14cqw #f3d27a,0 0 0 .3cqw rgba(40,26,10,.85),0 0 2.2cqw .5cqw rgba(243,210,122,.75)}}
+.wlm.st-trade:hover .wrow::after,.wlm.st-trade.picked .wrow::after{animation:none;box-shadow:0 0 0 .2cqw var(--gold-hi),0 0 2cqw .4cqw rgba(243,210,122,.85)}
+@media(prefers-reduced-motion:reduce){.wlm.st-trade .wrow::after{animation:none}}
+@media(min-width:1240px){
+.worldmap>.whudbar .wh-ev,.worldmap>.wh-ev{font-size:clamp(9px,1.45cqw,19px);gap:.6cqw;padding:.2em .9cqw;height:auto!important;min-height:6%;line-height:1.25;overflow:hidden;white-space:nowrap}
+.wh-ev .go{line-height:1}
+.wh-ev .ex{width:1.35em!important;height:1.35em!important;min-width:0!important;min-height:0!important;flex:none}
+.wh-ev>span:nth-child(2){flex:none}
+.wh-ev .go{font-size:1.3em;flex:none}
+@container wmap (max-width:640px){.wh-ev>span:nth-child(2){display:none}}
+}
+@media(min-width:861px){
+.worldmap>.wpiles>*{font-size:clamp(8px,.95cqw,15px)}
+.worldmap>.wpiles svg{width:1.2em;height:1.2em;min-width:0;min-height:0}
+.wflag{font-size:clamp(8px,.95cqw,14px)}
+}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&display=swap" rel="stylesheet">
 </head>
