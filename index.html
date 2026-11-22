@@ -1416,6 +1416,15 @@ button.card:hover{transform:none}
 .hand .card .desc,.role>.card .desc{padding-bottom:26px}
 @media(min-width:861px) and (max-width:1399px){.me{--cw:128px}}
 @media(min-width:861px) and (max-width:1300px){.me{--cw:118px}}
+
+/* v21：手機版補上「交易市集」按鈕（桌機仍用地圖上的市集） */
+.wpiles .mkbtn{display:none}
+@media(max-width:860px){
+.worldmap .wlm,.worldmap .wlm.lm-market{display:none!important}
+.wpiles .mkbtn{display:flex;grid-column:1/-1;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:99px;font-size:15px;font-weight:700;letter-spacing:.12em;color:#1b1209;background:linear-gradient(180deg,#e6c46f,#b9893a);border:1px solid #3a2a0c;box-shadow:0 0 0 2px rgba(226,181,80,.35),0 3px 8px rgba(0,0,0,.5);cursor:pointer}
+.wpiles .mkbtn small{font-size:11.5px;font-weight:500;letter-spacing:0;opacity:.8}
+.wpiles .mkbtn i{font-style:normal;font-size:18px;line-height:1}
+}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&display=swap" rel="stylesheet">
 </head>
@@ -2649,7 +2658,7 @@ function worldMapHTML(){
   const hud=`<div class="whudbar">
     ${ev?`<button class="whud wh-ev${fresh?' fresh':''}" data-a="lmopen" data-id="${ev}"><span class="ex">!</span><span>地標事件</span><b>${esc(G.EV[ev].name)}</b><span class="go">›</span></button>`
       :'<div class="whud wh-ev"><span class="ex">!</span><span>地標事件</span><b class="dim">尚未觸發</b></div>'}</div>`;
-  const piles=`<div class="wpiles"><span title="資源牌庫：剩餘張數">${ICON.crate}資源牌庫<b>${S.deck.length}</b></span><button data-a="pile" title="查看棄牌堆">${ICON.fire}棄牌堆<b>${S.discard.length}</b></button><span title="地標牌庫：剩餘張數">${ICON.tower}地標牌庫<b>${S.evDeck.length}</b></span><span title="角色牌庫：轉生時抽取">${ICON.mask}角色牌庫<b>${S.roleDeck.length}</b></span></div>`;
+  const piles=`<div class="wpiles"><button class="mkbtn" data-a="lmopen" data-id="market" title="開啟交易市集">${ICON.swap||''}<span>交易市集</span><small>用 1 張手牌換市集卡</small><i>›</i></button><span title="資源牌庫：剩餘張數">${ICON.crate}資源牌庫<b>${S.deck.length}</b></span><button data-a="pile" title="查看棄牌堆">${ICON.fire}棄牌堆<b>${S.discard.length}</b></button><span title="地標牌庫：剩餘張數">${ICON.tower}地標牌庫<b>${S.evDeck.length}</b></span><span title="角色牌庫：轉生時抽取">${ICON.mask}角色牌庫<b>${S.roleDeck.length}</b></span></div>`;
   return `<div class="worldmap${fresh?' fresh':''}">${hud}${lms}${piles}</div>`;
 }
 function lmModalHTML(me,mine,myTurn,idle){
