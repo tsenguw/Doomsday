@@ -149,6 +149,13 @@ button.card:hover{transform:translateY(-3px);box-shadow:inset 0 0 0 1px color-mi
 .turnbadge.on{background:linear-gradient(180deg,#d6b46c,#9c7836);color:#1c1408;border-color:#e7cb8a;box-shadow:0 0 16px rgba(217,184,113,.45)}
 .pill{border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .tmr{background:#3a1d12;border-color:#e0642a;color:#ffd0b8;font-weight:700}
+.stagebn{position:fixed;left:50%;top:84px;transform:translateX(-50%);z-index:70;width:min(560px,92vw);background:linear-gradient(180deg,#2a1410,#170c09);border:2px solid #b8321a;border-radius:10px;box-shadow:0 10px 40px #000c,0 0 30px #b8321a55;padding:12px 18px;text-align:center;cursor:pointer;animation:stgIn .5s ease-out}
+.stagebn small{display:block;color:#e7b08f;letter-spacing:.2em}.stagebn b{display:block;font-size:26px;color:#ffd7b0;margin:2px 0 6px;font-family:var(--serif,serif)}
+.stagebn span{display:block;color:#f1e2cf;line-height:1.6}.stagebn em{display:block;margin-top:6px;font-size:11px;color:#a98;font-style:normal}
+.stagebn.warn{border-color:#d9a23b;box-shadow:0 10px 40px #000c,0 0 30px #d9a23b55}.stagebn.blood b{color:#ff8a7a}
+@keyframes stgIn{from{opacity:0;transform:translate(-50%,-14px)}to{opacity:1;transform:translate(-50%,0)}}
+.mkbtn.sealed{filter:grayscale(1) brightness(.6);cursor:not-allowed}
+.btn.blood{border-color:#b8321a;color:#ffb3a6}
 .tmr.urgent{background:#b8321a;color:#fff;animation:tutp .8s infinite}
 .bar .tools{display:flex;gap:6px}
 
@@ -1582,7 +1589,7 @@ var G = (function () {
     return s.deck.shift();
   }
   function drawTo(s, i, n) { let k = 0; for (; k < n; k++) { const c = draw(s); if (c == null) break; s.players[i].hand.push(c); } return k; }
-  function refillMarket(s) { while (s.market.length < 3) { const c = draw(s); if (c == null) break; s.market.push(c); } }
+  function refillMarket(s) { if (s.marketClosed) return; while (s.market.length < 3) { const c = draw(s); if (c == null) break; s.market.push(c); } }
   function field(s) { const out = []; s.players.forEach((p, pi) => p.front.forEach((x) => out.push({ p: pi, c: x.c, lock: x.lock }))); return out; }
   function findFront(s, cid) { for (let p = 0; p < s.players.length; p++) { const i = s.players[p].front.findIndex((x) => x.c === cid); if (i >= 0) return { p, i, lock: s.players[p].front[i].lock }; } return null; }
   function takeFront(s, cid) { const l = findFront(s, cid); if (l) s.players[l.p].front.splice(l.i, 1); return l; }
@@ -1613,7 +1620,7 @@ var G = (function () {
     });
     shuffle(pool);
     const s = {
-      phase: 'play', opts: { facN: 2, skill: 'life', doom: opts && opts.doom ? doomCfg(seats.length, opts.doom) : null }, // 固定規則：陣營勝利每人專屬裝備 2 張；角色技能每次轉生 1 次
+      phase: 'play', stages: !!(opts && opts.stages), opts: { facN: 2, skill: 'life', doom: opts && opts.doom ? doomCfg(seats.length, opts.doom) : null }, // 固定規則：陣營勝利每人專屬裝備 2 張；角色技能每次轉生 1 次
       players: seats.map((p, i) => ({ id: p.id, name: p.name, bot: !!p.bot, hand: [], front: [], role: { n: pool[i], rev: false, used: false } })),
       turn: 0, acted: false, round: 1,
       deck: shuffle(CARDS.map((c) => c.id)), discard: [], market: [],
@@ -1684,6 +1691,56 @@ var G = (function () {
 
   // ---------- engine loop ----------
   const OPS = {}, RESP = {}, MAGIC = {}, SKILL = {}, EVT = {};
+  // ---------- 末日階段 ----------
+  const STAGE_END = 14;
+  const STAGES = [
+    { r: 4, k: 'famine', name: '糧食短缺', d: '一次性：每位玩家把手牌中的所有裝備打出到任何玩家面前（面前超過 5 張要丟入棄牌堆），再補齊 5 張手牌。' },
+    { r: 6, k: 'beast', name: '野獸襲擊', d: '持續：禁止轉生；交易市集關閉，市集上的 3 張牌永遠封印。（第 5 輪會預告）' },
+    { r: 8, k: 'blood', name: '血月降臨', d: '持續：所有人強制揭露身分；每人在自己的回合可從任一玩家面前取回 1 張自己角色的未橫放裝備（不算動作）。' },
+    { r: STAGE_END, k: 'end', name: '世界末日', d: `第 ${STAGE_END} 輪結束時仍無人獲勝，世界毀滅，全員死亡。` },
+  ];
+  function stageStart(s, r) {
+    const st = STAGES.find((x) => x.r === r);
+    if (r === 5) { s.stageNote = { r, k: 'warn', name: '野獸逼近', d: '下一輪起交易市集將關閉，市集上的 3 張牌會永遠封印。最後的交易機會！' }; log(s, '⚠ 野獸逼近：下一輪起交易市集將關閉，市集上的 3 張牌會永遠封印。'); return; }
+    if (!st || st.k === 'end') return;
+    s.stage = st.k; s.stageNote = { r, k: st.k, name: st.name, d: st.d };
+    log(s, `☄ 第 ${r} 輪・${st.name}：${st.d}`);
+    if (st.k === 'famine') order(s, s.first).forEach((i) => s.q.push({ op: 'famine', pid: i }));
+    if (st.k === 'beast') {
+      s.noReinc = true; s.marketClosed = true; s.sealed = s.market.slice(); s.market = [];
+      if (s.sealed.length) log(s, `市集上的 ${s.sealed.map(cn).join('')} 被永遠封印。`);
+    }
+    if (st.k === 'blood') { s.bloodMoon = true; s.bloodUsed = false; s.players.forEach((_, i) => reveal(s, i, '血月')); }
+  }
+  OPS.famine = (s, st) => {
+    const p = s.players[st.pid], eq = p.hand.filter((c) => C(c).k === 'E');
+    if (!eq.length) { const k = drawTo(s, st.pid, 5 - p.hand.length); if (k) log(s, `${nm(s, st.pid)}（糧食短缺）補了 ${k} 張手牌。`); return; }
+    const c = eq[0];
+    ask(s, st.pid, 'choice', 'famine', { title: `糧食短缺：把 ${C(c).name} 放到誰面前？（還有 ${eq.length} 張裝備要打出）`, show: [c], cid: c,
+      opts: order(s, st.pid).map((i) => ({ id: String(i), label: i === st.pid ? '自己面前' : nm(s, i) + ' 面前' })) });
+  };
+  RESP.famine = (s, pr, a) => {
+    const to = +a; rm(s.players[pr.pid].hand, pr.cid); putFront(s, to, pr.cid, false);
+    log(s, `${nm(s, pr.pid)}（糧食短缺）把 ${cn(pr.cid)} 放到${to === pr.pid ? '自己' : ' ' + nm(s, to) + ' '}面前。`);
+    qFront(s, [{ op: 'famine', pid: pr.pid }]);
+  };
+  function bloodCards(s, pid) {
+    const r = s.players[pid].role.n, out = [];
+    others(s, pid).forEach((j) => s.players[j].front.forEach((x) => { if (!x.lock && C(x.c).role === r) out.push({ c: x.c, tag: nm(s, j) }); }));
+    return out;
+  }
+  function canBlood(s, pid) { return !!s.bloodMoon && !s.bloodUsed && s.phase === 'play' && s.turn === pid && !s.prompt && !s.q.length && bloodCards(s, pid).length > 0; }
+  RESP.blood = (s, pr, a) => {
+    if (!a.length) return;
+    const c = a[0], l = takeFront(s, c); if (!l) return;
+    putFront(s, pr.pid, c, false); s.bloodUsed = true;
+    log(s, `${nm(s, pr.pid)}（血月）從 ${nm(s, l.p)} 面前取回 ${cn(c)}。`);
+  };
+  function allDead(s) {
+    s.phase = 'over'; s.winners = { type: 'dead', ids: [] };
+    log(s, `☄ 第 ${STAGE_END} 輪結束：世界末日降臨，無人倖存，全員死亡。`);
+  }
+
   function run(s) {
     for (let guard = 0; guard < 2000; guard++) {
       if (s.prompt || s.phase !== 'play') break;
@@ -1891,6 +1948,7 @@ var G = (function () {
   // ---------- 轉生 / 事件 ----------
   OPS.reinc = (s, st) => {
     const p = s.players[st.pid];
+    if (s.noReinc) { log(s, `${nm(s, st.pid)} 本應轉生，但野獸襲擊中禁止轉生。`); return; }
     s.roleDeck.push(p.role.n);
     p.role = { n: s.roleDeck.shift(), rev: false, used: false };
     log(s, `${nm(s, st.pid)} 轉生了，換上新的角色。`);
@@ -2079,10 +2137,17 @@ var G = (function () {
       if (s.turn === s.first) {
         s.cycle = (s.cycle || 1) + 1;
         if (D && D.end && s.cycle > D.end) { doomEnd(s); return null; }
+        if (s.stages) { if (s.cycle > STAGE_END) { allDead(s); return null; } stageStart(s, s.cycle); }
       }
+      if (s.bloodMoon) { s.bloodUsed = false; reveal(s, s.turn, '血月'); }
       log(s, `— 輪到 ${nm(s, s.turn)} —`);
       if (D && s.turn === s.first && s.cycle === D.from) log(s, `☄ 末日將至（第 ${s.cycle} 輪）：從現在起每位玩家只有 ${D.sec} 秒思考時間，時間到強制換下一位。`);
       return run(s), null;
+    }
+    if (a.t === 'blood') {
+      if (!canBlood(s, pid)) return '現在不能使用血月取回';
+      ask(s, pid, 'cards', 'blood', { title: '血月降臨：從任一玩家面前取回 1 張自己角色的未橫放裝備', cards: bloodCards(s, pid), min: 0, max: 1, sense: 'good' });
+      return null;
     }
     if (a.t === 'skill') {
       if (!canSkill(s, pid)) return '現在不能發動角色技能';
@@ -2110,6 +2175,7 @@ var G = (function () {
       }
       return run(s), null;
     }
+    if (a.t === 'market' && s.marketClosed) return '市集已被封印';
     if (a.t === 'market') {
       if (!p.hand.includes(a.c) || !s.market.includes(a.m)) return '無法交換';
       p.hand[p.hand.indexOf(a.c)] = a.m; s.market[s.market.indexOf(a.m)] = a.c; s.acted = true;
@@ -2122,6 +2188,7 @@ var G = (function () {
       log(s, `${p.name} 換掉全部 ${n} 張手牌。`);
       return run(s), null;
     }
+    if (a.t === 'reinc' && s.noReinc) { if (p.hand.length) return '野獸襲擊：禁止轉生'; s.acted = true; log(s, `${p.name} 沒有手牌可用，只能跳過。`); return run(s), null; }
     if (a.t === 'reinc') { s.acted = true; s.q.push({ op: 'reinc', pid, event: true }); return run(s), null; }
     return '未知的動作';
   }
@@ -2153,6 +2220,7 @@ var G = (function () {
         if (pr.k === 'null') return { pid, ans: Math.random() < 0.3 ? 'y' : 'n' };
         if (pr.k === 'accept') return { pid, ans: useful(s, pid, pr.cid) || Math.random() < 0.5 ? 'y' : 'n' };
         if (pr.k === 'eqYN') return { pid, ans: 'y' };
+        if (pr.k === 'famine') { const o = others(s, pid); return { pid, ans: String(useful(s, pid, pr.cid) ? pid : o[rnd(o.length)]) }; }
         return { pid, ans: pr.opts[rnd(pr.opts.length)].id };
       }
       let cs = shuffle(pr.cards.map((x) => x.c));
@@ -2165,6 +2233,7 @@ var G = (function () {
       return { pid, ans: cs.slice(0, Math.min(n, pr.max)) };
     }
     const pid = s.turn, p = s.players[pid];
+    if (canBlood(s, pid)) return { pid, act: { t: 'blood' } };
     if (s.acted) return { pid, act: { t: 'end' } };
     if (canSkill(s, pid) && Math.random() < 0.3) return { pid, act: { t: 'skill' } };
     const good = p.hand.filter((c) => useful(s, pid, c));
@@ -2177,10 +2246,17 @@ var G = (function () {
       return { pid, act: { t: 'play', c, to: C(c).k === 'E' && Math.random() < 0.3 ? o[rnd(o.length)] : pid } };
     }
     if (canRedraw(s, pid) && Math.random() < 0.5) return { pid, act: { t: 'redraw' } };
+    if (s.noReinc) {
+      if (canRedraw(s, pid)) return { pid, act: { t: 'redraw' } };
+      const any = p.hand.filter((c) => C(c).fn !== 'nullify' && (C(c).k === 'M' || p.front.length < 5));
+      if (any.length) return { pid, act: { t: 'play', c: any[0], to: pid } };
+      const eq = p.hand.filter((c) => C(c).k === 'E');
+      if (eq.length) return { pid, act: { t: 'play', c: eq[0], to: pid } };
+    }
     return { pid, act: { t: 'reinc' } };
   }
 
-  return { FAC, ROLES, CARDS, EV, EVENTS, MAG, TYPE, C, newGame, act, respond, bot, canSkill, canRedraw, timed, autoAnswer, soloCheck, facProgress, skillSpec };
+  return { FAC, ROLES, CARDS, EV, EVENTS, MAG, TYPE, C, newGame, act, respond, bot, canSkill, canRedraw, canBlood, STAGES, STAGE_END, timed, autoAnswer, soloCheck, facProgress, skillSpec };
 })();
 
 
@@ -2427,7 +2503,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 async function autoRejoin(code){
   try{
     const snap=await db.doc('games/'+code).get();
-    if(!snap.exists||(snap.data().ts&&Date.now()-snap.data().ts>ROOM_TTL)){store.set('ew-room','');return;}
+    if(!snap.exists||(snap.data().ts&&Date.now()-snap.data().ts>ROOM_TTL)||(snap.data().rs||'')!==RULESET){store.set('ew-room','');return;}
     const d=snap.data();subscribe(code);
     if(d.phase==='lobby'&&myName)await mySeat();
     toast('已自動回到房間 '+code);
@@ -2441,11 +2517,12 @@ async function createRoom(){
   if(!needName())return;ui.busy=true;render();
   try{
     let code='';for(let t=0;t<12;t++){code=String(Math.floor(Math.random()*10000)).padStart(4,'0');const ex=await db.doc('games/'+code).get();if(!ex.exists)break;}
-    const ts=Date.now();await db.doc('games/'+code).set({v:1,host:uid,phase:'lobby',bots:0,s:'',ts});if(db.touch)db.touch(code,ts);
+    const ts=Date.now();await db.doc('games/'+code).set({v:1,host:uid,phase:'lobby',bots:0,s:'',ts,rs:RULESET});if(db.touch)db.touch(code,ts);
     subscribe(code);await mySeat();
   }catch(e){toast(e&&e.code==='invalid_argument'?'無法建立房間：你沒有這個頁面的寫入權限。':'建立房間失敗（'+((e&&e.code)||'')+'）');}
   ui.busy=false;render();
 }
+const RULESET='stages-dev1'; // 規則版本：不同版本的房間互不相通
 async function joinRoom(){
   if(!needName())return;const code=(ui.codeIn||'').trim();
   if(!/^\d{4}$/.test(code))return toast('請輸入 4 位數字的房號');
@@ -2454,6 +2531,7 @@ async function joinRoom(){
     const snap=await db.doc('games/'+code).get();
     if(!snap.exists){toast('找不到房間 '+code);}
     else if(snap.data().ts&&Date.now()-snap.data().ts>ROOM_TTL){toast('房間 '+code+' 已閒置超過 24 小時而關閉');db.sweep&&db.sweep(Date.now()-ROOM_TTL).catch(()=>{});}
+    else if((snap.data().rs||'')!==RULESET){toast('房間 '+code+' 是用另一個版本（正式版／測試版）開的，請改用同一個網址加入');}
     else{const d=snap.data();subscribe(code);if(d.phase==='lobby')await mySeat();}
   }catch(e){toast(e&&e.code==='invalid_argument'?'無法加入：你沒有這個頁面的寫入權限，請房主把你的分享權限調整為可參與／可編輯。':'加入失敗（'+((e&&e.code)||'')+'）');}
   ui.busy=false;render();
@@ -2481,11 +2559,11 @@ function startOnline(){
   const d=net.doc,seats=net.seats.map((x)=>({id:x.id,name:String(x.name||'玩家').slice(0,12)}));
   for(let i=0;i<(d.bots||0);i++)seats.push({id:'bot'+i,name:BOTN[i],bot:true});
   if(seats.length<4||seats.length>6)return toast('需要 4–6 位玩家（可加入電腦玩家補滿）');
-  S=G.newGame(seats,{doom:!!d.doom});V++;push({phase:'play',s:JSON.stringify(S)});mode='game';render();
+  S=G.newGame(seats,{doom:!!d.doom,stages:true});V++;push({phase:'play',s:JSON.stringify(S)});mode='game';render();
 }
 function startLocal(){
   if(!needName())return;const seats=[{id:'me',name:myName}];for(let i=0;i<ui.practice;i++)seats.push({id:'bot'+i,name:BOTN[i],bot:true});
-  local=true;net=null;S=G.newGame(seats,{doom:ui.doom});V=1;mode='game';render();
+  local=true;net=null;S=G.newGame(seats,{doom:ui.doom,stages:true});V=1;mode='game';render();
 }
 
 document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&ui.lm){ui.lm=null;render();}});
@@ -2634,7 +2712,7 @@ function homeHTML(){
   <div class="homegrid">
   <div class="panel wide"><label for="nm">你的暱稱<input type="text" id="nm" maxlength="12" value="${esc(myName)}" placeholder="最多 12 個字"></label></div>
   <div class="panel"><h2>新手教學${store.get('ew-tut')==='1'?'':' <span class="hint">建議先看</span>'}</h2><p class="dim small" style="margin:0">跟著提示親手完成一次個人勝利，約 3 分鐘，不需連線。</p><div><button class="btn pri" data-a="tutorial">開始教學</button></div></div>
-  <div class="panel"><h2>單機練習</h2><div class="row"><label for="pr">電腦對手<select id="pr">${[3,4,5].map((n)=>`<option value="${n}" ${n===ui.practice?'selected':''}>${n} 位</option>`).join('')}</select></label><label class="switch"><input type="checkbox" role="switch" id="pdoom" ${ui.doom?'checked':''}><span class="sw-track" aria-hidden="true"><span class="sw-on">開</span><span class="sw-off">關</span><span class="sw-knob"></span></span><span class="sw-lbl">末日倒數</span></label></div>
+  <div class="panel"><h2>單機練習</h2><div class="row"><label for="pr">電腦對手<select id="pr">${[3,4,5].map((n)=>`<option value="${n}" ${n===ui.practice?'selected':''}>${n} 位</option>`).join('')}</select></label><label class="switch"><input type="checkbox" role="switch" id="pdoom" ${ui.doom?'checked':''}><span class="sw-track" aria-hidden="true"><span class="sw-on">開</span><span class="sw-off">關</span><span class="sw-knob"></span></span><span class="sw-lbl">限時模式</span></label></div>
     <div><button class="btn" data-a="local">開始練習</button></div></div>
   <div class="panel wide"><h2>連線對戰</h2>
     ${!capReady?'<p class="dim small" style="margin:0">連線功能準備中…</p>':on?(canWrite===false?'<p class="hint" style="margin:0">你目前對這個頁面只有檢視權限，無法建立或加入房間。請頁面擁有者把你的分享權限調整為可參與／可編輯。</p>':''):`<p class="hint" style="margin:0">${esc(netErr||'這個畫面無法使用連線功能。')}仍可單機練習。</p>`}
@@ -2661,7 +2739,7 @@ function lobbyHTML(){
   <div class="panel"><h2>設定${host?'':'（由房主決定）'}</h2><div class="row">
     <label for="ob">電腦玩家<select id="ob" ${host?'':'disabled'}>${opts.map((n)=>`<option value="${n}" ${n===cur?'selected':''}>${n} 位</option>`).join('')}</select></label>
     <span class="hint">目前 ${humans} 位真人，電腦可選 ${lo}${hi>lo?'–'+hi:''} 位（真人＋電腦需 4–6 人）。</span>
-  </div><div class="row" style="margin-top:8px"><label class="switch"><input type="checkbox" role="switch" id="odoom" ${d.doom?'checked':''} ${host?'':'disabled'}><span class="sw-track" aria-hidden="true"><span class="sw-on">開</span><span class="sw-off">關</span><span class="sw-knob"></span></span><span class="sw-lbl">末日倒數</span></label><span class="hint">限制遊戲長度（前 8 輪不限時；第 9 輪起每位玩家只有 20 秒思考時間，時間到強制換下一位；沒有輪數上限）</span></div></div>
+  </div><div class="row" style="margin-top:8px"><label class="switch"><input type="checkbox" role="switch" id="odoom" ${d.doom?'checked':''} ${host?'':'disabled'}><span class="sw-track" aria-hidden="true"><span class="sw-on">開</span><span class="sw-off">關</span><span class="sw-knob"></span></span><span class="sw-lbl">限時模式</span></label><span class="hint">加快節奏（前 8 輪不限時；第 9 輪起每位玩家只有 20 秒思考時間，時間到強制換下一位）</span></div></div>
   <div class="row">${host?`<button class="btn pri" data-a="start" ${total>=4&&total<=6?'':'disabled'}>開始遊戲</button>`:'<span class="dim">等待房主開始…</span>'}
     <button class="btn" data-a="rules">遊戲規則</button><button class="btn" data-a="leave">離開房間</button>
     ${total<4?'<span class="hint">至少需要 4 位玩家，可用電腦玩家補滿。</span>':''}${total>6?'<span class="hint">最多 6 位玩家。</span>':''}</div></div>`;
@@ -2709,13 +2787,28 @@ function worldMapHTML(){
   const hud=`<div class="whudbar">
     ${ev?`<button class="whud wh-ev${fresh?' fresh':''}" data-a="lmopen" data-id="${ev}"><span class="ex">!</span><span>地標事件</span><b>${esc(G.EV[ev].name)}</b><span class="go">›</span></button>`
       :'<div class="whud wh-ev"><span class="ex">!</span><span>地標事件</span><b class="dim">尚未觸發</b></div>'}</div>`;
-  const piles=`<div class="wpiles"><button class="mkbtn" data-a="lmopen" data-id="market" title="開啟交易市集">${ICON.swap||''}<span>交易市集</span><small>用 1 張手牌換市集卡</small><i>›</i></button><span title="資源牌庫：剩餘張數">${ICON.crate}資源牌庫<b>${S.deck.length}</b></span><button data-a="pile" title="查看棄牌堆">${ICON.fire}棄牌堆<b>${S.discard.length}</b></button><span title="地標牌庫：剩餘張數">${ICON.tower}地標牌庫<b>${S.evDeck.length}</b></span><span title="角色牌庫：轉生時抽取">${ICON.mask}角色牌庫<b>${S.roleDeck.length}</b></span></div>`;
+  const piles=`<div class="wpiles">${S.marketClosed?`<span class="mkbtn sealed" title="野獸襲擊：交易市集已關閉">${ICON.swap||''}<span>交易市集</span><small>已封印</small></span>`:`<button class="mkbtn" data-a="lmopen" data-id="market" title="開啟交易市集">${ICON.swap||''}<span>交易市集</span><small>${S.cycle===5&&S.stages?'下一輪將關閉！':'用 1 張手牌換市集卡'}</small><i>›</i></button>`}<span title="資源牌庫：剩餘張數">${ICON.crate}資源牌庫<b>${S.deck.length}</b></span><button data-a="pile" title="查看棄牌堆">${ICON.fire}棄牌堆<b>${S.discard.length}</b></button><span title="地標牌庫：剩餘張數">${ICON.tower}地標牌庫<b>${S.evDeck.length}</b></span><span title="角色牌庫：轉生時抽取">${ICON.mask}角色牌庫<b>${S.roleDeck.length}</b></span></div>`;
   return `<div class="worldmap${fresh?' fresh':''}">${hud}${lms}${piles}</div>`;
+}
+function stageNow(){const cy=S.cycle||1;let cur=null,nx=null;G.STAGES.forEach((x)=>{if(x.k==='end')return;if(x.r<=cy)cur=x;if(x.r>cy&&!nx)nx=x;});return {cy,cur,nx};}
+function stageStatHTML(){
+  if(!S.stages)return '<div class="stat st-doom off"><small>末日倒數</small><b>未開啟</b></div>';
+  const {cy,cur,nx}=stageNow(),endIn=G.STAGE_END-cy+1;
+  const tip=G.STAGES.map((x)=>`第 ${x.r} 輪・${x.name}：${x.d}`).join('\n');
+  return `<div class="stat st-doom${cur?' now':''}" data-tip="${esc(tip)}"><small>${cur?'末日階段・'+cur.name:'末日倒數'}</small><b>${nx?(nx.r-cy)+'<i> 輪後 '+nx.name+'</i>':'<i>最後階段</i>'}</b></div><div class="stat st-doom${endIn<=3?' now':''}" data-tip="第 ${G.STAGE_END} 輪結束時仍無人獲勝，全員死亡"><small>世界末日倒數</small><b>${endIn}<i> 輪（含本輪）</i></b></div>`;
+}
+function stageBannerHTML(){
+  if(!S||!S.stageNote||S.phase!=='play')return '';
+  const n=S.stageNote,k=n.r+'|'+n.k;
+  if(ui.stageSeen===k)return '';
+  if(!ui.stageAt||ui.stageKey!==k){ui.stageKey=k;ui.stageAt=Date.now();setTimeout(()=>{if(ui.stageKey===k){ui.stageSeen=k;render();}},6500);}
+  return `<div class="stagebn ${n.k}" data-a="stagex" role="status"><small>第 ${n.r} 輪</small><b>☄ ${esc(n.name)}</b><span>${esc(n.d)}</span><em>點一下關閉</em></div>`;
 }
 function lmModalHTML(me,mine,myTurn,idle){
   if(!ui.lm){ui.lmShown=null;return '';}
   const enter=ui.lmShown!==ui.lm?' enter':'';ui.lmShown=ui.lm;
   const canAct=myTurn&&idle&&!S.acted,id=ui.lm;
+  if(id==='market'&&S.marketClosed){ui.lm=null;return '';}
   if(id==='market'){
     const canMarket=canAct&&ui.sel!=null&&mine&&mine.hand.includes(ui.sel);
     const hint=!mine?'觀戰中':!myTurn?'只有在你的回合才能交換。':!canAct?'你這回合已經用掉動作了。':canMarket?'點一張市集卡，和選取的手牌交換（消耗 1 行動）。':'先在下方選一張要交出的手牌，再點市集卡交換（消耗 1 行動）。';
@@ -2731,7 +2824,7 @@ function lmModalHTML(me,mine,myTurn,idle){
     <span class="wstate st-${st}">${LM_STATE[st]}</span>
     <div class="evdesc"><div class="zh">地標事件</div><p>${esc(e.desc)}</p></div>
     <p class="dim small">地標不能指定觸發：玩家轉生、或打出功能卡「事件觸發」時，會翻開地標牌庫最上面的一張。目前地標牌庫剩 <b>${S.evDeck.length}</b> 張，本輪已觸發 <b>${(S.evDiscard||[]).length}</b> 個；全部翻完後重新洗牌。</p>
-    <div class="row">${canAct&&mine?`<button class="btn warn" data-a="reinc">轉生・觸發地標${cost('1 行動')}</button>`:''}<button class="btn ghost" data-a="lmclose">返回地圖</button></div></div></div></div></div>`;
+    <div class="row">${canAct&&mine&&!S.noReinc?`<button class="btn warn" data-a="reinc">轉生・觸發地標${cost('1 行動')}</button>`:''}<button class="btn ghost" data-a="lmclose">返回地圖</button></div></div></div></div></div>`;
 }
 const logK=(l)=>/^[—─-]|輪到/.test(l)?'k-turn':/末日|勝利|獲勝|遊戲結束/.test(l)?'k-big':/地標|事件/.test(l)?'k-ev':/交換|市集|收下|退回/.test(l)?'k-trade':/決鬥|戰鬥|奪取|搶|丟入棄牌|丟棄/.test(l)?'k-fight':/技能|揭露/.test(l)?'k-skill':/打出|放到|面前/.test(l)?'k-play':'';
 const LOGI={'k-turn':'⌛','k-big':'☄','k-ev':'⚑','k-trade':'⚖','k-fight':'⚔','k-skill':'✦','k-play':'◆','':'·'};
@@ -2751,7 +2844,7 @@ function gameHTML(){
   const tmr=(S.opts&&S.opts.doom&&S.phase==='play')?'<span id="tmr" class="pill tmr" style="display:none"></span>':'';
   const bar=`<header class="bar"><h1>末日爭奪戰</h1>
     <div class="stat"><small>${net?'房號':'模式'}</small><b>${net?net.code:'單機'}</b></div>
-    <div class="stat"><small>總手數</small><b>${S.round}</b></div><div class="stat st-round"><small>目前輪數</small><b>${S.cycle||1}</b></div>${(()=>{const D=S.opts&&S.opts.doom,cy=S.cycle||1;return D?(cy>=D.from?`<div class="stat st-doom now"><small>末日倒數</small><b>已降臨</b></div>`:`<div class="stat st-doom"><small>末日倒數</small><b>${D.from-cy}<i> 輪</i></b></div>`):'<div class="stat st-doom off"><small>末日倒數</small><b>未開啟</b></div>';})()}${tmr}<span class="sp"></span>
+    <div class="stat"><small>總手數</small><b>${S.round}</b></div><div class="stat st-round"><small>目前輪數</small><b>${S.cycle||1}</b></div>${stageStatHTML()}${tmr}<span class="sp"></span>
     <span class="turnbadge${myTurn?' on':''}">${over?'遊戲結束':myTurn?'你的回合':'輪到 '+esc(S.players[S.turn].name)}</span>
     <span class="tools"><button class="btn sm" data-a="guide" aria-pressed="${ui.guide}">指引：${ui.guide?'開':'關'}</button><button class="btn sm" data-a="rules">規則</button>${fsOK()?`<button class="btn sm fsbtn" data-a="fs" aria-pressed="${fsOn()}" title="${fsOn()?'離開全螢幕':'切換為全螢幕'}">${fsOn()?ICON_FSX:ICON_FS}${fsOn()?'結束全螢幕':'全螢幕'}</button>`:''}<button class="btn sm ghost" data-a="leave">離開</button></span></header>`;
 
@@ -2809,10 +2902,11 @@ function gameHTML(){
         else if(sel)acts+=sel.fn==='nullify'?tipw(`<button class="btn pri" disabled>發動【${sel.name}】${cost('1 行動')}</button>`,'【無效】只能在別人發動功能卡或裝備技能時打出'):`<button class="btn pri" data-a="cast">發動【${sel.name}】${cost('1 行動')}</button>`;
         else acts+=tipw(`<button class="btn pri" disabled>打出手牌${cost('1 行動')}</button>`,'先在手牌選一張卡');
         if(!ui.give){
-          acts+=`<button class="btn" data-a="lmopen" data-id="market" data-tip="開啟交易市集，用 1 張手牌換 1 張市集卡">市集交換${cost('1 行動')}</button>`;
+          acts+=S.marketClosed?tipw(`<button class="btn" disabled>市集交換${cost('1 行動')}</button>`,'野獸襲擊：交易市集已封印'):`<button class="btn" data-a="lmopen" data-id="market" data-tip="開啟交易市集，用 1 張手牌換 1 張市集卡">市集交換${cost('1 行動')}</button>`;
           acts+=G.canRedraw(S,me)?`<button class="btn" data-a="redraw" data-tip="丟掉全部手牌，重新抽 5 張">全部換掉${cost('1 行動')}</button>`:tipw(`<button class="btn" disabled>全部換掉${cost('1 行動')}</button>`,'手牌必須全是裝備或全是功能卡');
-          acts+=`<button class="btn warn" data-a="reinc" data-tip="換一個新角色，並翻開 1 張地標卡（事件）">轉生${cost('1 行動')}</button>`;}
+          acts+=S.noReinc?tipw(`<button class="btn warn" disabled>轉生${cost('1 行動')}</button>`,'野獸襲擊：禁止轉生'):`<button class="btn warn" data-a="reinc" data-tip="換一個新角色，並翻開 1 張地標卡（事件）">轉生${cost('1 行動')}</button>`;}
       }else acts+=`<button class="btn pri" data-a="end">結束回合${cost('補牌至 5',1)}</button>`;
+      if(!ui.give&&G.canBlood(S,me))acts+=`<button class="btn skill blood" data-a="blood" data-tip="從任一玩家面前取回 1 張自己角色的未橫放裝備（每回合 1 次）">血月・取回裝備${cost('免行動',1)}</button>`;
       if(!ui.give)acts+=G.canSkill(S,me)?`<button class="btn skill" data-a="skill" data-tip="不消耗動作，但會揭露你的角色">技能「${R.sk}」${cost('免行動',1)}</button>`
         :tipw(`<button class="btn skill" disabled>技能「${R.sk}」</button>`,R.passive?'被動技能，條件達成時自動生效':'這個角色的技能已經用過了');
     }else if(!over)acts=`<span class="ap" data-tip="不是你的回合">行動 <i></i><b>0</b></span><span class="waitmsg">${wait||'等待中…'}</span>`;
@@ -2837,6 +2931,8 @@ const gHTML=guideHTML(me,mine,myTurn,idle),wHTML=wait?`<span class="wait">${wait
     <main class="board">${worldMapHTML()}</main>${right}${meHTML}</div>${lmModalHTML(me,mine,myTurn,idle)}`;
 }
 const PTIP={
+  famine:'糧食短缺：手上的裝備要全部打出。需要的放自己面前，用不到的可以塞給別人。面前超過 5 張要棄牌。',
+  blood:'血月：選 1 張自己角色的裝備拿回來，不算動作；也可以先不拿。',
   null:'打出【無效】會讓對方這次的效果直接失效。你的【無效】進棄牌堆，要等你自己的回合結束才補牌。',
   accept:'收下：這張裝備留在你面前（上限 5 張）。退回：它會改放到對方面前。標示「你的勝利條件」的是你需要的裝備。',
   eqYN:'裝備技能可用可不用。發動後，手上有【無效】的玩家可以擋下。',
@@ -2913,8 +3009,8 @@ function promptHTML(){
 function overHTML(){
   if(!S||S.phase!=='over'||ui.hideOver||tut)return '';
   const w=S.winners;
-  return `<div class="shade mid"><div class="sheet"><div class="row" style="justify-content:center">${w.type==='fac'||w.fac?emb(FAC[w.fac]?FAC[w.fac].key:'x',56):''}</div><h2 class="overttl">${w.type==='solo'?'個人勝利':w.type==='doom'?'☄ 末日降臨':'陣營勝利：'+FAC[w.fac].nation}</h2>${w.type==='doom'?'<p class="dim small" style="margin:0">倒數結束，由個人勝利條件完成最多的人倖存。</p>':''}
-    <p style="margin:0">${w.ids.map((i)=>esc(S.players[i].name)+'（'+S.players[i].role.n+'）').join('、')} 獲勝！</p>
+  return `<div class="shade mid"><div class="sheet"><div class="row" style="justify-content:center">${w.type==='fac'||w.fac?emb(FAC[w.fac]?FAC[w.fac].key:'x',56):''}</div><h2 class="overttl">${w.type==='solo'?'個人勝利':w.type==='dead'?'☄ 世界末日・全員死亡':w.type==='doom'?'☄ 末日降臨':'陣營勝利：'+FAC[w.fac].nation}</h2>${w.type==='dead'?`<p style="margin:0">第 ${G.STAGE_END} 輪結束，仍然沒有人湊齊保命的裝備。世界在創世神的怒火中毀滅，無人倖存。</p>`:''}${w.type==='doom'?'<p class="dim small" style="margin:0">倒數結束，由個人勝利條件完成最多的人倖存。</p>':''}
+    ${w.ids.length?`<p style="margin:0">${w.ids.map((i)=>esc(S.players[i].name)+'（'+S.players[i].role.n+'）').join('、')} 獲勝！</p>`:''}
     ${S.players.map((p,i)=>`<div class="seat"><span>${esc(p.name)}${w.ids.includes(i)?' ★':''}</span><span class="tag-${facKey(p.role.n)}">${p.role.n}・${FAC[ROLES[p.role.n].f].nation}</span></div>`).join('')}
     <div class="row">${local?'<button class="btn pri" data-a="again">再來一局</button>':myPid()>=0?'<button class="btn pri" data-a="newgame">再來一局（同一批玩家）</button>'+(isHost()?'<button class="btn" data-a="tolobby">回到大廳</button>':''):''}
     <button class="btn" data-a="hideover">查看牌桌</button><button class="btn" data-a="leave">離開</button></div></div></div>`;
@@ -2991,11 +3087,16 @@ function rulesHTML(){
   <li><b>個人勝利</b>：你面前同時擁有角色卡上指定的裝備。大多數角色是「任 1 個自己角色的裝備＋2 張指定裝備」；村長是「任 2 個村長裝備＋村長家的地契」；幼童是「任 2 個幼童裝備＋魔女玩偶」；史萊姆是「任 4 個其他類裝備」。畫面左下會顯示你目前的進度。</li>
   <li><b>陣營勝利</b>：同一陣營至少 <b>2 位</b>玩家，而且<b>每個人</b>面前都有「自己角色的專屬裝備 2 張」。史萊姆沒有專屬裝備，需湊齊其他類裝備 3 張。</li>
   <li><b>判定時機</b>：每個動作（包含連鎖的技能、事件與【無效】）全部結算完才判定。如果同時有數人達成，從當前回合玩家開始依座位順序判定，<b>個人勝利優先於陣營勝利</b>。</li></ul>
-  <h3>可選規則：末日倒數</h3><p>想加快節奏時，房主可以在大廳勾選「末日倒數」（單機練習也可以）。全桌每人輪到一次為一輪，從先手玩家開始計算。</p><ul>
+  <h3>末日倒數（四個階段）</h3><p>創世神的毀滅不會等人。全桌每人輪到一次為一輪，從先手玩家開始計算；畫面上方會顯示目前階段，以及距離下一個階段與世界末日還有幾輪。</p><ul>
+  <li><b>第 4 輪・糧食短缺</b>（一次性）：從先手玩家開始，每人把手牌中的<b>所有裝備</b>依序打出到任何玩家面前（自己或別人）；面前超過 5 張要選牌丟入棄牌堆。打完後補齊 5 張手牌。</li>
+  <li><b>第 5 輪・野獸逼近</b>（預告）：下一輪起交易市集將關閉，這是最後的交易機會。</li>
+  <li><b>第 6 輪・野獸襲擊</b>（持續）：<b>禁止轉生</b>（包括地標造成的強制轉生）；<b>交易市集關閉</b>，市集上的 3 張牌永遠封印，不再補牌。</li>
+  <li><b>第 8 輪・血月降臨</b>（持續）：所有人<b>強制揭露身分</b>。每人在自己的回合可以從任一玩家面前<b>取回 1 張自己角色的未橫放裝備</b>（不算動作，每回合 1 次）。</li>
+  <li><b>第 14 輪結束・世界末日</b>：仍然沒有人達成勝利條件，世界毀滅，<b>全員死亡</b>（沒有贏家）。</li></ul>
+  <h3>可選規則：限時模式</h3><p>想加快節奏時，房主可以在大廳開啟「限時模式」（單機練習也可以）。</p><ul>
   <li>前 8 輪正常進行，不限時。</li>
-  <li>從第 9 輪起（末日將至），每位玩家每次需要做決定時只有 <b>20 秒</b>，畫面上方會顯示倒數。</li>
-  <li>時間到還沒結束回合，就<b>強制換下一位</b>：沒做動作就直接跳過；已做了動作則自動結束回合（照常補牌）。需要你回應的選擇（選目標、選牌等）時間到時由系統代選，【無效】視為不打出。</li>
-  <li>沒有輪數上限，仍須有人達成勝利條件才會結束。</li></ul>
+  <li>從第 9 輪起，每位玩家每次需要做決定時只有 <b>20 秒</b>，畫面上方會顯示倒數。</li>
+  <li>時間到還沒結束回合，就<b>強制換下一位</b>：沒做動作就直接跳過；已做了動作則自動結束回合（照常補牌）。需要你回應的選擇時間到時由系統代選，【無效】視為不打出。</li></ul>
   <h3>角色一覽</h3><ul>${rl}</ul>
   <h3>範例回合</h3>
   <p>小美是<b class="tag-r">魔王軍</b>的吸血鬼，戰鬥指數 3；阿凱是<b class="tag-g">村民會</b>的農夫，戰鬥指數 2，面前有 2 張未橫放的裝備。輪到小美：</p>
@@ -3029,7 +3130,7 @@ function render(){
   app.querySelectorAll('*').forEach((el)=>{if(el.scrollTop||el.scrollLeft){const path=[];for(let n=el;n&&n!==app;n=n.parentElement)path.push(Array.prototype.indexOf.call(n.parentElement.children,n));scr.push({path:path.join('/'),top:el.scrollTop,left:el.scrollLeft,end:el.id==='log'&&el.scrollHeight-el.clientHeight-el.scrollTop<40});}});
   const lg0=$('#log'),logEnd=!lg0||lg0.scrollHeight-lg0.clientHeight-lg0.scrollTop<40;
   if(tut&&mode==='game'&&S)tutSync();
-  app.innerHTML=h+detailHTML()+rulesHTML()+tutHTML();
+  app.innerHTML=h+(mode==='game'&&S?stageBannerHTML():'')+detailHTML()+rulesHTML()+tutHTML();
   if(keep){const el=document.getElementById(keep.id);if(el){el.value=keep.v;el.focus();try{el.setSelectionRange(keep.s,keep.s)}catch(e){}}}
   scr.forEach((s)=>{let el=app;const ix=s.path.split('/').reverse();for(const i of ix){el=el&&el.children[+i];if(!el)break;}if(el){el.scrollTop=s.top;el.scrollLeft=s.left;}});
   const lg=$('#log');if(lg&&logEnd)lg.scrollTop=lg.scrollHeight; // 戰報：原本在底部才跟著新訊息；往上翻舊紀錄時不跳走
@@ -3086,7 +3187,7 @@ document.addEventListener('click',(e)=>{
       const seats=[],dropped=[];
       S.players.forEach((p)=>{if(p.bot)seats.push({id:p.id,name:p.name,bot:true});else if(online(p.id))seats.push({id:p.id,name:p.name});else dropped.push(p.name);});
       for(let k=0;seats.length<4;k++){const id='bot'+k;if(!seats.some((x)=>x.id===id))seats.push({id,name:BOTN[k]||('電腦'+k),bot:true});}
-      S=G.newGame(seats,{doom:!!(S.opts&&S.opts.doom)});ui.hideOver=false;ui.sel=null;ui.give=false;V++;
+      S=G.newGame(seats,{doom:!!(S.opts&&S.opts.doom),stages:true});ui.hideOver=false;ui.sel=null;ui.give=false;V++;
       push({phase:'play',s:JSON.stringify(S)});mode='game';
       if(dropped.length)toast('已略過離線玩家：'+dropped.join('、'));
       render();return;}
@@ -3106,6 +3207,8 @@ document.addEventListener('click',(e)=>{
     case 'redraw':commit((c)=>G.act(c,me,{t:'redraw'}));return;
     case 'reinc':commit((c)=>G.act(c,me,{t:'reinc'}));return;
     case 'skill':commit((c)=>G.act(c,me,{t:'skill'}));return;
+    case 'blood':commit((c)=>G.act(c,me,{t:'blood'}));return;
+    case 'stagex':ui.stageSeen=ui.stageKey;break;
     case 'end':commit((c)=>G.act(c,me,{t:'end'}));return;
     case 'ans':commit((c)=>G.respond(c,me,el.dataset.v));return;
     case 'psel':{const p=S.prompt;if(!p)return;const i=ui.psel.indexOf(cid);if(i>=0)ui.psel.splice(i,1);else{if(p.max===1)ui.psel=[cid];else if(ui.psel.length<p.max)ui.psel.push(cid);}break;}

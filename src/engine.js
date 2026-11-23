@@ -97,7 +97,7 @@ var G = (function () {
     return s.deck.shift();
   }
   function drawTo(s, i, n) { let k = 0; for (; k < n; k++) { const c = draw(s); if (c == null) break; s.players[i].hand.push(c); } return k; }
-  function refillMarket(s) { while (s.market.length < 3) { const c = draw(s); if (c == null) break; s.market.push(c); } }
+  function refillMarket(s) { if (s.marketClosed) return; while (s.market.length < 3) { const c = draw(s); if (c == null) break; s.market.push(c); } }
   function field(s) { const out = []; s.players.forEach((p, pi) => p.front.forEach((x) => out.push({ p: pi, c: x.c, lock: x.lock }))); return out; }
   function findFront(s, cid) { for (let p = 0; p < s.players.length; p++) { const i = s.players[p].front.findIndex((x) => x.c === cid); if (i >= 0) return { p, i, lock: s.players[p].front[i].lock }; } return null; }
   function takeFront(s, cid) { const l = findFront(s, cid); if (l) s.players[l.p].front.splice(l.i, 1); return l; }
@@ -128,7 +128,7 @@ var G = (function () {
     });
     shuffle(pool);
     const s = {
-      phase: 'play', opts: { facN: 2, skill: 'life', doom: opts && opts.doom ? doomCfg(seats.length, opts.doom) : null }, // 固定規則：陣營勝利每人專屬裝備 2 張；角色技能每次轉生 1 次
+      phase: 'play', stages: !!(opts && opts.stages), opts: { facN: 2, skill: 'life', doom: opts && opts.doom ? doomCfg(seats.length, opts.doom) : null }, // 固定規則：陣營勝利每人專屬裝備 2 張；角色技能每次轉生 1 次
       players: seats.map((p, i) => ({ id: p.id, name: p.name, bot: !!p.bot, hand: [], front: [], role: { n: pool[i], rev: false, used: false } })),
       turn: 0, acted: false, round: 1,
       deck: shuffle(CARDS.map((c) => c.id)), discard: [], market: [],
@@ -199,6 +199,56 @@ var G = (function () {
 
   // ---------- engine loop ----------
   const OPS = {}, RESP = {}, MAGIC = {}, SKILL = {}, EVT = {};
+  // ---------- 末日階段 ----------
+  const STAGE_END = 14;
+  const STAGES = [
+    { r: 4, k: 'famine', name: '糧食短缺', d: '一次性：每位玩家把手牌中的所有裝備打出到任何玩家面前（面前超過 5 張要丟入棄牌堆），再補齊 5 張手牌。' },
+    { r: 6, k: 'beast', name: '野獸襲擊', d: '持續：禁止轉生；交易市集關閉，市集上的 3 張牌永遠封印。（第 5 輪會預告）' },
+    { r: 8, k: 'blood', name: '血月降臨', d: '持續：所有人強制揭露身分；每人在自己的回合可從任一玩家面前取回 1 張自己角色的未橫放裝備（不算動作）。' },
+    { r: STAGE_END, k: 'end', name: '世界末日', d: `第 ${STAGE_END} 輪結束時仍無人獲勝，世界毀滅，全員死亡。` },
+  ];
+  function stageStart(s, r) {
+    const st = STAGES.find((x) => x.r === r);
+    if (r === 5) { s.stageNote = { r, k: 'warn', name: '野獸逼近', d: '下一輪起交易市集將關閉，市集上的 3 張牌會永遠封印。最後的交易機會！' }; log(s, '⚠ 野獸逼近：下一輪起交易市集將關閉，市集上的 3 張牌會永遠封印。'); return; }
+    if (!st || st.k === 'end') return;
+    s.stage = st.k; s.stageNote = { r, k: st.k, name: st.name, d: st.d };
+    log(s, `☄ 第 ${r} 輪・${st.name}：${st.d}`);
+    if (st.k === 'famine') order(s, s.first).forEach((i) => s.q.push({ op: 'famine', pid: i }));
+    if (st.k === 'beast') {
+      s.noReinc = true; s.marketClosed = true; s.sealed = s.market.slice(); s.market = [];
+      if (s.sealed.length) log(s, `市集上的 ${s.sealed.map(cn).join('')} 被永遠封印。`);
+    }
+    if (st.k === 'blood') { s.bloodMoon = true; s.bloodUsed = false; s.players.forEach((_, i) => reveal(s, i, '血月')); }
+  }
+  OPS.famine = (s, st) => {
+    const p = s.players[st.pid], eq = p.hand.filter((c) => C(c).k === 'E');
+    if (!eq.length) { const k = drawTo(s, st.pid, 5 - p.hand.length); if (k) log(s, `${nm(s, st.pid)}（糧食短缺）補了 ${k} 張手牌。`); return; }
+    const c = eq[0];
+    ask(s, st.pid, 'choice', 'famine', { title: `糧食短缺：把 ${C(c).name} 放到誰面前？（還有 ${eq.length} 張裝備要打出）`, show: [c], cid: c,
+      opts: order(s, st.pid).map((i) => ({ id: String(i), label: i === st.pid ? '自己面前' : nm(s, i) + ' 面前' })) });
+  };
+  RESP.famine = (s, pr, a) => {
+    const to = +a; rm(s.players[pr.pid].hand, pr.cid); putFront(s, to, pr.cid, false);
+    log(s, `${nm(s, pr.pid)}（糧食短缺）把 ${cn(pr.cid)} 放到${to === pr.pid ? '自己' : ' ' + nm(s, to) + ' '}面前。`);
+    qFront(s, [{ op: 'famine', pid: pr.pid }]);
+  };
+  function bloodCards(s, pid) {
+    const r = s.players[pid].role.n, out = [];
+    others(s, pid).forEach((j) => s.players[j].front.forEach((x) => { if (!x.lock && C(x.c).role === r) out.push({ c: x.c, tag: nm(s, j) }); }));
+    return out;
+  }
+  function canBlood(s, pid) { return !!s.bloodMoon && !s.bloodUsed && s.phase === 'play' && s.turn === pid && !s.prompt && !s.q.length && bloodCards(s, pid).length > 0; }
+  RESP.blood = (s, pr, a) => {
+    if (!a.length) return;
+    const c = a[0], l = takeFront(s, c); if (!l) return;
+    putFront(s, pr.pid, c, false); s.bloodUsed = true;
+    log(s, `${nm(s, pr.pid)}（血月）從 ${nm(s, l.p)} 面前取回 ${cn(c)}。`);
+  };
+  function allDead(s) {
+    s.phase = 'over'; s.winners = { type: 'dead', ids: [] };
+    log(s, `☄ 第 ${STAGE_END} 輪結束：世界末日降臨，無人倖存，全員死亡。`);
+  }
+
   function run(s) {
     for (let guard = 0; guard < 2000; guard++) {
       if (s.prompt || s.phase !== 'play') break;
@@ -406,6 +456,7 @@ var G = (function () {
   // ---------- 轉生 / 事件 ----------
   OPS.reinc = (s, st) => {
     const p = s.players[st.pid];
+    if (s.noReinc) { log(s, `${nm(s, st.pid)} 本應轉生，但野獸襲擊中禁止轉生。`); return; }
     s.roleDeck.push(p.role.n);
     p.role = { n: s.roleDeck.shift(), rev: false, used: false };
     log(s, `${nm(s, st.pid)} 轉生了，換上新的角色。`);
@@ -594,10 +645,17 @@ var G = (function () {
       if (s.turn === s.first) {
         s.cycle = (s.cycle || 1) + 1;
         if (D && D.end && s.cycle > D.end) { doomEnd(s); return null; }
+        if (s.stages) { if (s.cycle > STAGE_END) { allDead(s); return null; } stageStart(s, s.cycle); }
       }
+      if (s.bloodMoon) { s.bloodUsed = false; reveal(s, s.turn, '血月'); }
       log(s, `— 輪到 ${nm(s, s.turn)} —`);
       if (D && s.turn === s.first && s.cycle === D.from) log(s, `☄ 末日將至（第 ${s.cycle} 輪）：從現在起每位玩家只有 ${D.sec} 秒思考時間，時間到強制換下一位。`);
       return run(s), null;
+    }
+    if (a.t === 'blood') {
+      if (!canBlood(s, pid)) return '現在不能使用血月取回';
+      ask(s, pid, 'cards', 'blood', { title: '血月降臨：從任一玩家面前取回 1 張自己角色的未橫放裝備', cards: bloodCards(s, pid), min: 0, max: 1, sense: 'good' });
+      return null;
     }
     if (a.t === 'skill') {
       if (!canSkill(s, pid)) return '現在不能發動角色技能';
@@ -625,6 +683,7 @@ var G = (function () {
       }
       return run(s), null;
     }
+    if (a.t === 'market' && s.marketClosed) return '市集已被封印';
     if (a.t === 'market') {
       if (!p.hand.includes(a.c) || !s.market.includes(a.m)) return '無法交換';
       p.hand[p.hand.indexOf(a.c)] = a.m; s.market[s.market.indexOf(a.m)] = a.c; s.acted = true;
@@ -637,6 +696,7 @@ var G = (function () {
       log(s, `${p.name} 換掉全部 ${n} 張手牌。`);
       return run(s), null;
     }
+    if (a.t === 'reinc' && s.noReinc) { if (p.hand.length) return '野獸襲擊：禁止轉生'; s.acted = true; log(s, `${p.name} 沒有手牌可用，只能跳過。`); return run(s), null; }
     if (a.t === 'reinc') { s.acted = true; s.q.push({ op: 'reinc', pid, event: true }); return run(s), null; }
     return '未知的動作';
   }
@@ -668,6 +728,7 @@ var G = (function () {
         if (pr.k === 'null') return { pid, ans: Math.random() < 0.3 ? 'y' : 'n' };
         if (pr.k === 'accept') return { pid, ans: useful(s, pid, pr.cid) || Math.random() < 0.5 ? 'y' : 'n' };
         if (pr.k === 'eqYN') return { pid, ans: 'y' };
+        if (pr.k === 'famine') { const o = others(s, pid); return { pid, ans: String(useful(s, pid, pr.cid) ? pid : o[rnd(o.length)]) }; }
         return { pid, ans: pr.opts[rnd(pr.opts.length)].id };
       }
       let cs = shuffle(pr.cards.map((x) => x.c));
@@ -680,6 +741,7 @@ var G = (function () {
       return { pid, ans: cs.slice(0, Math.min(n, pr.max)) };
     }
     const pid = s.turn, p = s.players[pid];
+    if (canBlood(s, pid)) return { pid, act: { t: 'blood' } };
     if (s.acted) return { pid, act: { t: 'end' } };
     if (canSkill(s, pid) && Math.random() < 0.3) return { pid, act: { t: 'skill' } };
     const good = p.hand.filter((c) => useful(s, pid, c));
@@ -692,9 +754,16 @@ var G = (function () {
       return { pid, act: { t: 'play', c, to: C(c).k === 'E' && Math.random() < 0.3 ? o[rnd(o.length)] : pid } };
     }
     if (canRedraw(s, pid) && Math.random() < 0.5) return { pid, act: { t: 'redraw' } };
+    if (s.noReinc) {
+      if (canRedraw(s, pid)) return { pid, act: { t: 'redraw' } };
+      const any = p.hand.filter((c) => C(c).fn !== 'nullify' && (C(c).k === 'M' || p.front.length < 5));
+      if (any.length) return { pid, act: { t: 'play', c: any[0], to: pid } };
+      const eq = p.hand.filter((c) => C(c).k === 'E');
+      if (eq.length) return { pid, act: { t: 'play', c: eq[0], to: pid } };
+    }
     return { pid, act: { t: 'reinc' } };
   }
 
-  return { FAC, ROLES, CARDS, EV, EVENTS, MAG, TYPE, C, newGame, act, respond, bot, canSkill, canRedraw, timed, autoAnswer, soloCheck, facProgress, skillSpec };
+  return { FAC, ROLES, CARDS, EV, EVENTS, MAG, TYPE, C, newGame, act, respond, bot, canSkill, canRedraw, canBlood, STAGES, STAGE_END, timed, autoAnswer, soloCheck, facProgress, skillSpec };
 })();
 if (typeof module !== 'undefined') module.exports = G;
